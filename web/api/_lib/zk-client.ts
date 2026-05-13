@@ -9,8 +9,13 @@
  * Стратегия: fresh session per query (ZK state е fragile при reuse).
  */
 
-const BASE_URL = 'http://transport.plovdiv.bg/desktop/'
-const AU_URL = 'http://transport.plovdiv.bg/zkau'
+import { upstreamUrl, withProxyAuth } from './upstream.js'
+
+const BASE_PATH = '/desktop/'
+const AU_PATH = '/zkau'
+
+// Referer винаги е реалния upstream URL (общинският сайт)
+const REAL_BASE_URL = 'http://transport.plovdiv.bg/desktop/'
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36'
@@ -35,12 +40,12 @@ export interface Session {
 }
 
 async function bootstrap(): Promise<Session> {
-  const res = await fetch(BASE_URL, {
-    headers: {
+  const res = await fetch(upstreamUrl(BASE_PATH), {
+    headers: withProxyAuth({
       'User-Agent': USER_AGENT,
       Accept: 'text/html,application/xhtml+xml,*/*',
       'Accept-Language': 'bg-BG,bg;q=0.9,en;q=0.8',
-    },
+    }),
   })
   if (!res.ok) {
     throw new Error(`bootstrap failed: ${res.status}`)
@@ -66,17 +71,17 @@ async function auPost(
   body: URLSearchParams,
   zkSid: number
 ): Promise<string> {
-  const res = await fetch(`${AU_URL}${session.cu}`, {
+  const res = await fetch(upstreamUrl(`${AU_PATH}${session.cu}`), {
     method: 'POST',
-    headers: {
+    headers: withProxyAuth({
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
       'User-Agent': USER_AGENT,
       Accept: '*/*',
-      Referer: BASE_URL,
+      Referer: REAL_BASE_URL,
       Origin: 'http://transport.plovdiv.bg',
       'ZK-SID': String(zkSid),
       Cookie: session.cookies,
-    },
+    }),
     body: body.toString(),
   })
   const text = await res.text()

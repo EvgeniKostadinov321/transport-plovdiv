@@ -10,7 +10,9 @@
  *   - Mapping stop number → linии които я обслужват
  */
 
-const BASE_URL = 'http://transport.plovdiv.bg/desktop/'
+import { upstreamUrl, withProxyAuth } from './upstream.js'
+
+const BASE_PATH = '/desktop/'
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36'
 
@@ -92,14 +94,15 @@ function parseStopLines(html: string): Map<number, string[]> {
 }
 
 async function load(): Promise<StaticData> {
-  console.log(`[static-data] fetching ${BASE_URL}`)
+  const url = upstreamUrl(BASE_PATH)
+  console.log(`[static-data] fetching ${url}`)
   let res: Response
   try {
-    res = await fetch(BASE_URL, {
-      headers: {
+    res = await fetch(url, {
+      headers: withProxyAuth({
         'User-Agent': USER_AGENT,
         Accept: 'text/html,application/xhtml+xml,*/*',
-      },
+      }),
     })
   } catch (err) {
     const cause = (err as Error).cause
