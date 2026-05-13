@@ -37,6 +37,52 @@ export default {
       return Response.json({ ok: true, ts: Date.now() })
     }
 
+    // Diagnostic: показва какво се случва при опит за свързване
+    if (url.pathname === '/diag') {
+      const targets = [
+        'http://transport.plovdiv.bg/',
+        'http://transport.plovdiv.bg/desktop/',
+        'https://transport.plovdiv.bg/',
+        // Тестваме други BG datacenter sites за сравнение
+        'https://www.plovdiv.bg/',     // други общински сайтове
+        'https://www.dnes.bg/',         // популярен BG news site
+        'https://www.eurogps.eu/',      // hosting provider-ът
+        // IP-то директно
+        'http://91.212.17.110/',
+      ]
+      const results = []
+      for (const target of targets) {
+        const start = Date.now()
+        try {
+          const res = await fetch(target, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
+              Accept: 'text/html,*/*',
+            },
+            signal: AbortSignal.timeout(15000),
+            redirect: 'manual',
+          })
+          results.push({
+            target,
+            ok: true,
+            status: res.status,
+            ms: Date.now() - start,
+            location: res.headers.get('location'),
+            server: res.headers.get('server'),
+          })
+        } catch (err) {
+          results.push({
+            target,
+            ok: false,
+            ms: Date.now() - start,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
+      }
+      return Response.json({ tests: results })
+    }
+
     // Construct upstream URL - запазваме path и query
     const upstreamUrl = `http://${UPSTREAM_HOST}${url.pathname}${url.search}`
 

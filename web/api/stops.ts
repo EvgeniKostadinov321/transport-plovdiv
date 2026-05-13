@@ -1,26 +1,31 @@
-import { getStaticData } from './_lib/static-data.js'
+/**
+ * Vercel function: /api/stops - forwards към backend tunnel.
+ */
 
-export const config = {
-  runtime: 'nodejs',
-}
+export const config = { runtime: 'nodejs' }
+
+const BACKEND = process.env.API_BACKEND_URL ?? ''
 
 export default async function handler(_req: Request) {
+  if (!BACKEND) {
+    return Response.json({ error: 'API_BACKEND_URL not configured' }, { status: 500 })
+  }
   try {
-    const data = await getStaticData()
-    return Response.json(
-      { stops: data.stops, loadedAt: data.loadedAt },
-      {
-        headers: {
-          'Cache-Control': 's-maxage=86400, max-age=300',
-        },
-      }
-    )
+    const res = await fetch(`${BACKEND.replace(/\/$/, '')}/api/stops`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(25000),
+    })
+    const body = await res.text()
+    return new Response(body, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 's-maxage=86400, max-age=300',
+      },
+    })
   } catch (err) {
     return Response.json(
-      {
-        error: 'static load failed',
-        details: err instanceof Error ? err.message : String(err),
-      },
+      { error: 'backend unreachable', details: err instanceof Error ? err.message : String(err) },
       { status: 502 }
     )
   }

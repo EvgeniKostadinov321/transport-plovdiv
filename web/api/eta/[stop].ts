@@ -1,44 +1,16 @@
-import { getStopETA, type ETAEntry } from '../_lib/zk-client.js'
+/**
+ * Vercel function: /api/eta/:stop - forwards към backend tunnel.
+ */
 
-export const config = {
-  runtime: 'nodejs',
-}
+export const config = { runtime: 'nodejs' }
 
-// In-memory cache (живее през lifetime-а на serverless invocation-а)
-const CACHE_TTL_MS = 25_000
-
-interface CachedEntry {
-  etas: ETAEntry[]
-  fetchedAt: number
-}
-const etaCache = new Map<number, CachedEntry>()
-const inflight = new Map<number, Promise<ETAEntry[]>>()
-
-async function fetchETACached(
-  stopNumber: number,
-  force: boolean
-): Promise<{ etas: ETAEntry[]; fetchedAt: number; cached: boolean }> {
-  const now = Date.now()
-  if (force) etaCache.delete(stopNumber)
-  const cached = etaCache.get(stopNumber)
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
-    return { etas: cached.etas, fetchedAt: cached.fetchedAt, cached: true }
-  }
-  let promise = inflight.get(stopNumber)
-  if (!promise) {
-    promise = getStopETA(stopNumber).finally(() => inflight.delete(stopNumber))
-    inflight.set(stopNumber, promise)
-  }
-  const etas = await promise
-  const fetchedAt = Date.now()
-  etaCache.set(stopNumber, { etas, fetchedAt })
-  return { etas, fetchedAt, cached: false }
-}
+const BACKEND = process.env.API_BACKEND_URL ?? ''
 
 export default async function handler(req: Request) {
-  // Vercel пременя req.url да е relative или full - guard-ваме се
+  if (!BACKEND) {
+    return Response.json({ error: 'API_BACKEND_URL not configured' }, { status: 500 })
+  }
   const url = new URL(req.url, 'http://localhost')
-  // Vercel rewrite-ва path-а към /api/eta/[stop]?stop=27 - чети query param
   const stopParam =
     url.searchParams.get('stop') ??
     url.pathname.split('/').filter(Boolean).pop() ??
@@ -47,23 +19,25 @@ export default async function handler(req: Request) {
   if (isNaN(stopNumber) || stopNumber < 0 || stopNumber > 9999) {
     return Response.json({ error: 'invalid stop number' }, { status: 400 })
   }
+
   const force = url.searchParams.get('force') === '1'
+  const backendUrl = `${BACKEND.replace(/\/$/, '')}/api/eta/${stopNumber}${force ? '?force=1' : ''}`
 
   try {
-    const { etas, fetchedAt, cached } = await fetchETACached(stopNumber, force)
-    return Response.json({
-      stop: stopNumber,
-      etas,
-      fetchedAt: new Date(fetchedAt).toISOString(),
-      cached,
-      ageSeconds: Math.floor((Date.now() - fetchedAt) / 1000),
+    const res = await fetch(backendUrl, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(25000),
+    })
+    const body = await res.text()
+    return new Response(body, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     })
   } catch (err) {
     return Response.json(
-      {
-        error: 'upstream failed',
-        details: err instanceof Error ? err.message : String(err),
-      },
+      { error: 'backend unreachable', details: err instanceof Error ? err.message : String(err) },
       { status: 502 }
     )
   }
