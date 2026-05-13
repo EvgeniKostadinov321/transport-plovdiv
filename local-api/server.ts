@@ -9,8 +9,8 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { getStopETA, type ETAEntry } from '../web/api/_lib/zk-client.ts'
-import { getStaticData } from '../web/api/_lib/static-data.ts'
+import { getStopETA, type ETAEntry } from './lib/zk-client.ts'
+import { getStaticData } from './lib/static-data.ts'
 
 const app = new Hono()
 
