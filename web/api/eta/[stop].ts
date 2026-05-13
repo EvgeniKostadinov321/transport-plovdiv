@@ -1,4 +1,4 @@
-import { getStopETA, type ETAEntry } from '../_lib/zk-client'
+import { getStopETA, type ETAEntry } from '../_lib/zk-client.js'
 
 export const config = {
   runtime: 'nodejs',
@@ -36,10 +36,13 @@ async function fetchETACached(
 }
 
 export default async function handler(req: Request) {
-  const url = new URL(req.url)
-  // Vercel dynamic route param: /api/eta/27 -> pathname /api/eta/27
-  const parts = url.pathname.split('/').filter(Boolean)
-  const stopParam = parts[parts.length - 1]
+  // Vercel пременя req.url да е relative или full - guard-ваме се
+  const url = new URL(req.url, 'http://localhost')
+  // Vercel rewrite-ва path-а към /api/eta/[stop]?stop=27 - чети query param
+  const stopParam =
+    url.searchParams.get('stop') ??
+    url.pathname.split('/').filter(Boolean).pop() ??
+    ''
   const stopNumber = parseInt(stopParam, 10)
   if (isNaN(stopNumber) || stopNumber < 0 || stopNumber > 9999) {
     return Response.json({ error: 'invalid stop number' }, { status: 400 })

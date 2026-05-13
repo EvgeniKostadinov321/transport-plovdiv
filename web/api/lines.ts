@@ -1,4 +1,4 @@
-import { getStaticData } from './_lib/static-data'
+import { getStaticData } from './_lib/static-data.js'
 
 export const config = {
   runtime: 'nodejs',
