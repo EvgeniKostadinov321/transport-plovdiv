@@ -30,6 +30,8 @@ export interface StaticData {
 
 let cached: StaticData | null = null
 let loading: Promise<StaticData> | null = null
+let lastFailureAt: number = 0
+const FAILURE_RETRY_AFTER_MS = 5_000 // retry след 5 сек при провал
 
 function parseStops(html: string): { number: number; name: string; lat: number; lng: number }[] {
   const re = /"number":(\d+),"name":"/g
@@ -132,10 +134,23 @@ async function load(): Promise<StaticData> {
 export async function getStaticData(): Promise<StaticData> {
   if (cached) return cached
   if (loading) return loading
-  loading = load().then((d) => {
-    cached = d
-    loading = null
-    return d
-  })
+  // Throttle retry-ите при failure - не спираме до общинския сайт ако се счупи
+  const sinceFailure = Date.now() - lastFailureAt
+  if (sinceFailure < FAILURE_RETRY_AFTER_MS) {
+    throw new Error(
+      `static data load failed recently (${Math.floor(sinceFailure / 1000)}s ago), retry in a few seconds`
+    )
+  }
+  loading = load()
+    .then((d) => {
+      cached = d
+      loading = null
+      return d
+    })
+    .catch((err) => {
+      loading = null
+      lastFailureAt = Date.now()
+      throw err
+    })
   return loading
 }
