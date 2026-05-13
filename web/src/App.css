@@ -1,0 +1,729 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* iOS Safari: предотвратяваме bounce/overscroll на цялата страница */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Dynamic viewport за mobile: dvh уважава скриваща се address bar.
+   Fallback към vh за стари браузъри (Safari < 15.4, Chrome < 108). */
+html {
+  height: 100vh;
+  height: 100dvh;
+}
+
+body {
+  height: 100vh;
+  height: 100dvh;
+  /* Изключваме pull-to-refresh */
+  overscroll-behavior-y: none;
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.map-root {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* === Desktop popup (Leaflet default) === */
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+/* === ETA content (used in both popup and bottom sheet) === */
+
+.eta-popup {
+  min-width: 380px;
+  max-width: 460px;
+  padding: 12px 14px 10px;
+  font-size: 13px;
+  color: #222;
+  display: flex;
+  flex-direction: column;
+}
+
+.eta-popup__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  line-height: 1.3;
+}
+
+.eta-popup__stop-num {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1a73e8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.eta-popup__stop-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #08060d;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.eta-popup__msg {
+  padding: 10px 0;
+  color: #666;
+}
+
+.eta-popup__msg--err {
+  color: #c0392b;
+}
+
+/* === Table === */
+
+.eta-table__scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+
+.eta-table__scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.eta-table__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.eta-table__scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.eta-table__scroll::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.eta-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.eta-table thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.eta-table th {
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #888;
+  padding: 4px 6px 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.eta-table th:first-child,
+.eta-table td:first-child {
+  padding-left: 0;
+}
+
+.eta-table th:last-child,
+.eta-table td:last-child {
+  padding-right: 0;
+}
+
+.eta-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #f4f4f4;
+  vertical-align: middle;
+}
+
+.eta-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Highlighted row (избрана линия) */
+.eta-table .eta-row--highlighted td {
+  background: rgba(26, 115, 232, 0.06);
+}
+
+.eta-table .eta-row--highlighted td:first-child {
+  border-left: 3px solid #1a73e8;
+  padding-left: 6px;
+}
+
+.eta-table th.eta-table__col-line,
+.eta-table td.eta-table__col-line {
+  width: 44px;
+  text-align: left;
+  padding-right: 12px;
+}
+
+.eta-table th.eta-table__col-min,
+.eta-table td.eta-table__col-min {
+  width: 32px;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.eta-table th.eta-table__col-time,
+.eta-table td.eta-table__col-time {
+  width: 40px;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  color: #555;
+}
+
+.eta-table th.eta-table__col-dest,
+.eta-table td.eta-table__col-dest {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+  color: #444;
+}
+
+/* === Line badge === */
+
+.line-badge {
+  display: inline-block;
+  min-width: 32px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1a73e8;
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Footer === */
+
+.eta-popup__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  font-size: 11px;
+  color: #999;
+}
+
+.eta-popup__refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  /* по-голяма tap area без visual difference */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eta-popup__refresh-btn:hover:not(:disabled) {
+  background: #f0f4fb;
+  color: #1a73e8;
+  border-color: #1a73e8;
+}
+
+.eta-popup__refresh-btn:active:not(:disabled) {
+  background: #e0e8f5;
+}
+
+.eta-popup__refresh-btn:disabled {
+  cursor: default;
+  color: #1a73e8;
+}
+
+.eta-popup__refresh-btn .spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* === Bottom sheet (mobile) === */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 998;
+  animation: fade-in 0.18s ease-out;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
+  /* Безопасна area за iOS home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  max-height: 70dvh;
+  animation: slide-up 0.22s ease-out;
+  overscroll-behavior: contain;
+  /* Покриваме напълно Leaflet attribution-а */
+  box-sizing: border-box;
+}
+
+
+.sheet__handle {
+  display: block;
+  width: 100%;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sheet__handle::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d0d0d0;
+}
+
+.sheet .eta-popup {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  padding: 0 16px 16px;
+  font-size: 14px;
+  min-height: 0;
+  box-sizing: border-box;
+  /* sheet е flex column container - eta-popup трябва да flex-grow */
+  flex: 1;
+  overflow: hidden;
+}
+
+.sheet .eta-table__scroll {
+  /* flex-съдържа scroll-а - няма нужда от max-height */
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+}
+
+.sheet .eta-popup__footer {
+  flex-shrink: 0;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* === Mobile-specific tweaks === */
+
+@media (max-width: 600px), (hover: none) and (pointer: coarse) {
+  /* По-големи labels на mobile */
+  .eta-popup {
+    font-size: 14px;
+  }
+
+  .eta-popup__stop-num {
+    font-size: 16px;
+  }
+
+  .eta-popup__stop-name {
+    font-size: 15px;
+  }
+
+  .eta-table th {
+    font-size: 12px;
+    padding: 6px 4px 8px;
+  }
+
+  .eta-table td {
+    padding: 8px 4px;
+  }
+
+  /* По-голяма line badge */
+  .line-badge {
+    min-width: 36px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  /* Минути column - малко по-широка за по-големия шрифт */
+  .eta-table th.eta-table__col-line,
+  .eta-table td.eta-table__col-line {
+    width: 52px;
+    padding-right: 8px;
+  }
+
+  .eta-table th.eta-table__col-min,
+  .eta-table td.eta-table__col-min {
+    width: 40px;
+  }
+
+  .eta-table th.eta-table__col-time,
+  .eta-table td.eta-table__col-time {
+    width: 46px;
+  }
+
+  /* По-голям refresh бутон за палец */
+  .eta-popup__refresh-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .eta-popup__footer {
+    font-size: 12px;
+    padding-top: 10px;
+    margin-top: 10px;
+  }
+}
+
+/* Leaflet zoom control: hide на mobile (тъч pinch-to-zoom е по-естествен) */
+@media (hover: none) and (pointer: coarse) {
+  .leaflet-control-zoom {
+    display: none;
+  }
+}
+
+/* === Line selector === */
+
+.line-selector {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: 12px;
+  right: 12px;
+  z-index: 500;
+  max-width: 480px;
+  font-size: 13px;
+}
+
+.line-selector__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: #222;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px; /* touch target */
+}
+
+.line-selector__toggle:active {
+  background: #f5f5f5;
+}
+
+.line-selector__placeholder {
+  color: #888;
+  flex: 1;
+}
+
+.line-selector__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.line-selector__chevron {
+  flex-shrink: 0;
+  color: #666;
+  transition: transform 0.18s ease;
+}
+
+.line-selector__chevron--open {
+  transform: rotate(180deg);
+}
+
+.line-selector__panel {
+  margin-top: 8px;
+  background: #fff;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  max-height: 60dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.line-selector__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+  color: #08060d;
+  font-size: 13px;
+}
+
+.line-selector__clear {
+  border: none;
+  background: transparent;
+  color: #1a73e8;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.line-selector__clear:hover {
+  background: #f0f4fb;
+}
+
+.line-selector__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 6px;
+  padding: 10px 14px 14px;
+  overflow-y: auto;
+}
+
+.line-selector__footer {
+  padding: 8px 14px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #888;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.line-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #d6d6d6;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.line-pick:hover {
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+.line-pick--active {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
+}
+
+.line-pick--active:hover {
+  background: #1660c3;
+  color: #fff;
+}
+
+/* Desktop refinements - line selector може да е по-малък */
+@media (min-width: 601px) and (hover: hover) {
+  .line-selector {
+    top: 16px;
+    left: 16px;
+    right: auto;
+    width: 360px;
+  }
+}
+
+/* === Empty state (no stops match filter) === */
+
+.empty-state {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 400;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 28px 24px 24px;
+  text-align: center;
+  max-width: 320px;
+  width: calc(100% - 48px);
+}
+
+.empty-state__icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.empty-state__title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #08060d;
+  margin-bottom: 4px;
+}
+
+.empty-state__msg {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.empty-state__btn {
+  display: inline-block;
+  padding: 10px 18px;
+  border: none;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.empty-state__btn:hover {
+  background: #1660c3;
+}
+
+.empty-state__btn:active {
+  background: #134f9c;
+}
+
+/* === Update prompt (PWA) === */
+
+.update-prompt {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  left: 16px;
+  right: 16px;
+  z-index: 1000;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  background: #1f2937;
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  animation: slide-up 0.22s ease-out;
+}
+
+.update-prompt__msg {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.update-prompt__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.update-prompt__btn {
+  border: 1px solid #4b5563;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.update-prompt__btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.update-prompt__btn--primary {
+  background: #1a73e8;
+  border-color: #1a73e8;
+}
+
+.update-prompt__btn--primary:hover {
+  background: #1660c3;
+}
+
+@media (max-width: 600px) {
+  .update-prompt {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .update-prompt__actions {
+    justify-content: center;
+  }
+}

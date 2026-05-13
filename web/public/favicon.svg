@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a73e8"/>
+  <!-- Bus body -->
+  <rect x="120" y="140" width="272" height="200" rx="32" fill="#ffffff"/>
+  <!-- Windows -->
+  <rect x="148" y="172" width="60" height="60" rx="8" fill="#1a73e8"/>
+  <rect x="216" y="172" width="60" height="60" rx="8" fill="#1a73e8"/>
+  <rect x="284" y="172" width="80" height="60" rx="8" fill="#1a73e8"/>
+  <!-- Door line -->
+  <rect x="244" y="260" width="4" height="80" fill="#1a73e8"/>
+  <!-- Wheels -->
+  <circle cx="172" cy="360" r="36" fill="#1f2937"/>
+  <circle cx="172" cy="360" r="16" fill="#9ca3af"/>
+  <circle cx="340" cy="360" r="36" fill="#1f2937"/>
+  <circle cx="340" cy="360" r="16" fill="#9ca3af"/>
+  <!-- Light at front -->
+  <circle cx="380" cy="252" r="10" fill="#fbbf24"/>
+</svg>
