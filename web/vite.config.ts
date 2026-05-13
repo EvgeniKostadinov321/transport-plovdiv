@@ -41,6 +41,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Не cache-ваме никакви API заявки засега - те трябва винаги да са fresh
+        // или да fail-ват с свежа грешка, не stale 504
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             // MapTiler tiles - cache 7 дни
@@ -54,19 +57,6 @@ export default defineConfig({
               },
             },
           },
-          {
-            // Static stops - cache 1 ден
-            urlPattern: /\/api\/(stops|lines)/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'static-api',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24,
-              },
-            },
-          },
-          // ETA endpoint-ите НЕ се кешират - винаги fresh
         ],
       },
     }),

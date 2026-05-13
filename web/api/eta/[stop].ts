@@ -1,4 +1,4 @@
-import { getStopETA, type ETAEntry } from '../_lib/zk-client.js'
+import { getStopETA, type ETAEntry } from '../_lib/zk-client'
 
 export const config = {
   runtime: 'nodejs',
