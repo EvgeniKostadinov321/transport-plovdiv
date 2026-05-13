@@ -27,8 +27,8 @@ interface ETAResponse {
   ageSeconds?: number
 }
 
-// Празно по default → API е на същия origin (Vercel functions)
-// За локално dev: VITE_API_URL=http://localhost:3001 в .env.local
+// API URL - в production е Cloudflare Tunnel към твоя PC (Vercel datacenter не може да го достигне)
+// В .env.production или Vercel env: VITE_API_URL=https://<tunnel>.trycloudflare.com
 const API_URL = import.meta.env.VITE_API_URL ?? ''
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY ?? ''
 const MAPTILER_STYLE = 'streets-v2' // или 'basic-v2', 'outdoor-v2', 'topo-v2'
