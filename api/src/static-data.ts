@@ -90,12 +90,23 @@ function parseStopLines(html: string): Map<number, string[]> {
 }
 
 async function load(): Promise<StaticData> {
-  const res = await fetch(BASE_URL, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      Accept: 'text/html,application/xhtml+xml,*/*',
-    },
-  })
+  console.log(`[static-data] fetching ${BASE_URL}`)
+  let res: Response
+  try {
+    res = await fetch(BASE_URL, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'text/html,application/xhtml+xml,*/*',
+      },
+    })
+  } catch (err) {
+    const cause = (err as Error).cause
+    console.error('[static-data] fetch threw:', err, 'cause:', cause)
+    throw new Error(
+      `fetch desktop/ threw: ${(err as Error).message}${cause ? ` (cause: ${JSON.stringify(cause)})` : ''}`
+    )
+  }
+  console.log(`[static-data] response status=${res.status}`)
   if (!res.ok) throw new Error(`fetch desktop/ failed: ${res.status}`)
   const html = await res.text()
 
