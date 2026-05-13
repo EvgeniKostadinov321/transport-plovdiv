@@ -27,7 +27,9 @@ interface ETAResponse {
   ageSeconds?: number
 }
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+// Празно по default → API е на същия origin (Vercel functions)
+// За локално dev: VITE_API_URL=http://localhost:3001 в .env.local
+const API_URL = import.meta.env.VITE_API_URL ?? ''
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY ?? ''
 const MAPTILER_STYLE = 'streets-v2' // или 'basic-v2', 'outdoor-v2', 'topo-v2'
 const PLOVDIV_CENTER: [number, number] = [42.1354, 24.7453]

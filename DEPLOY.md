@@ -1,73 +1,60 @@
 # Deploy инструкции
 
-## Backend (Railway)
+## Архитектура
 
-1. Отиди на [railway.app](https://railway.app/) и login с GitHub
-2. **New Project** → **Deploy from GitHub repo** → избери този repo
-3. Railway ще detect-не monorepo - кажи му да build-не само `api/` папката:
-   - **Settings** → **Root Directory**: `api`
-4. Setup env vars в **Variables**:
-   ```
-   PORT=3001
-   CORS_ORIGIN=https://your-app.vercel.app
-   ```
-   (CORS_ORIGIN сложи го след като direct-неш Vercel)
-5. **Settings** → **Networking** → **Generate Domain** → копирай URL-а
-   (нещо като `transport-plovdiv-api-production.up.railway.app`)
-6. Provel-вай че работи: отвори URL-а в браузъра, трябва да видиш `transport-plovdiv api`
+Всичко (frontend + API) се deploy-ва като **един проект на Vercel**:
 
-### CLI алтернатива
+- `web/src/` → React + Vite static build
+- `web/api/` → Vercel serverless functions (Node.js)
+  - `/api/lines` → 29 линии
+  - `/api/stops` → 530 спирки + GPS
+  - `/api/eta/[stop]` → live ETA данни
 
-```bash
-npm i -g @railway/cli
-railway login
-cd api
-railway init
-railway up
-railway domain
-```
+Защо не Railway: общинският сайт (`transport.plovdiv.bg`) блокира Railway IP диапазона.
+Vercel functions имат различен outbound IP pool.
 
-## Frontend (Vercel)
+## Vercel deploy
 
-1. Отиди на [vercel.com](https://vercel.com/) и login с GitHub
-2. **Add New Project** → импортирай repo-то
-3. **Root Directory**: `web` (важно!)
-4. **Framework Preset**: Vite (autodetect)
+1. [vercel.com](https://vercel.com/) → login с GitHub
+2. **Add New Project** → импортирай `transport-plovdiv` repo
+3. **Root Directory**: `web` (КРИТИЧНО)
+4. **Framework**: Vite (auto-detect)
 5. **Environment Variables**:
    ```
-   VITE_API_URL=https://your-api.up.railway.app
-   VITE_MAPTILER_KEY=your_maptiler_key
+   VITE_MAPTILER_KEY=твоя_ключ
    ```
+   (`VITE_API_URL` не е нужен - API е на същия origin)
 6. **Deploy**
 
-### CLI алтернатива
+## CLI алтернатива
 
 ```bash
 npm i -g vercel
 cd web
 vercel
-# follow prompts, set env vars
+# follow prompts
+vercel --prod   # production deploy
 ```
 
-## След deploy
-
-1. Копирай Vercel URL-а (`https://transport-plovdiv.vercel.app`)
-2. Върни се в Railway → промени `CORS_ORIGIN` на този URL
-3. Redeploy backend-а
-4. Тествай на телефона: отвори URL-а в Safari/Chrome → "Add to Home Screen"
-
-## Локален preview
+## Локално
 
 ```bash
-# api
-cd api && npm run dev
-
-# web
-cd web && npm run dev
+cd web
+cp .env.example .env.local
+# edit .env.local за VITE_MAPTILER_KEY
+npm install
+npm run dev   # → http://localhost:5173 (само frontend)
 ```
 
-## Production preview локално
-
+За локален тест на API functions, ползвай `vercel dev`:
 ```bash
-cd web && npm run build && npm run preview
+cd web
+vercel dev   # → http://localhost:3000 с functions
 ```
+
+## Тестване след deploy
+
+Отвори:
+- `https://<your-app>.vercel.app/` → React app
+- `https://<your-app>.vercel.app/api/lines` → JSON с 29 линии
+- `https://<your-app>.vercel.app/api/eta/27` → live ETA данни

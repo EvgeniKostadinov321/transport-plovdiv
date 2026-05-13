@@ -4,37 +4,41 @@ Live автобуси Пловдив. PWA с карта на спирките и
 
 ## Structure
 
-- **`web/`** — React + Vite frontend (PWA, MapTiler карта)
-- **`api/`** — Hono + Node backend (ZK Framework client за virtual board)
-- **`spike/`** — research артифакти (FINDINGS, raw responses)
-- **`docs/`** — проектен план
+```
+web/
+├── src/                React + Vite frontend (PWA)
+├── api/                Vercel serverless functions
+│   ├── lines.ts        GET /api/lines
+│   ├── stops.ts        GET /api/stops
+│   ├── eta/[stop].ts   GET /api/eta/:stop
+│   └── _lib/           shared utilities (zk-client, static-data)
+└── public/             static assets, иконки
 
-## Setup
+spike/                  research артифакти (FINDINGS, raw responses)
+docs/                   проектен план
+```
+
+## Setup локално
 
 ```bash
-# API
-cd api
-cp .env.example .env
-npm install
-npm run dev   # http://localhost:3001
-
-# Web (в отделен терминал)
 cd web
 cp .env.example .env.local
-# редактирай .env.local за VITE_MAPTILER_KEY
+# edit .env.local: VITE_MAPTILER_KEY=...
 npm install
-npm run dev   # http://localhost:5173
+npm run dev          # frontend на http://localhost:5173
+
+# в отделен терминал, за API functions:
+vercel dev           # пълен stack на http://localhost:3000
 ```
 
 ## Deploy
 
-Виж [DEPLOY.md](./DEPLOY.md) за production deploy инструкции (Vercel + Railway).
+Виж [DEPLOY.md](./DEPLOY.md). Един `vercel` команд deploy-ва и frontend и API.
 
 ## Tech stack
 
 - React 19 + TypeScript + Vite
-- Leaflet + react-leaflet за картата
-- MapTiler за tiles
-- vite-plugin-pwa за offline + install
-- Hono за backend HTTP server
+- Leaflet + react-leaflet, MapTiler tiles
+- vite-plugin-pwa (offline + install to home screen)
+- Vercel serverless functions (Node 22 runtime)
 - Native fetch за ZK client към `transport.plovdiv.bg`
