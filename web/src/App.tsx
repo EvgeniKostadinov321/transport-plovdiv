@@ -8,8 +8,8 @@ import { LocationButton } from './components/LocationButton'
 import { Map } from './components/Map'
 import { MenuButton } from './components/MenuButton'
 import { MenuDrawer, type TabId } from './components/MenuDrawer'
-import { useBusPositions } from './hooks/useBusPositions'
 import { useFavorites } from './hooks/useFavorites'
+import { useLiveVehicles } from './hooks/useLiveVehicles'
 import { useGeolocation } from './hooks/useGeolocation'
 import { useIsTouch } from './hooks/useIsTouch'
 import { useRouteGeometry } from './hooks/useRouteGeometry'
@@ -40,10 +40,7 @@ function App() {
     removeFavorite,
   } = useFavorites()
   const geo = useGeolocation()
-  const { positions: busPositions } = useBusPositions(
-    selectedLines,
-    stops
-  )
+  const liveVehicles = useLiveVehicles(selectedLines)
   const routeGeometryData = useRouteGeometry(selectedLines.length > 0)
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
@@ -151,7 +148,7 @@ function App() {
         userPosition={geo.position}
         userRecenterToken={userRecenterToken}
         favoriteSet={favoriteSet}
-        busPositions={busPositions}
+        liveVehicles={liveVehicles}
         routeGeometries={routeGeometries}
         onSelectStop={setSelectedStop}
         onFocusHandled={() => setFocusStop(null)}

@@ -1223,59 +1223,75 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   transition: transform 1.2s ease-in-out;
 }
 
-.bus-marker__shell {
-  width: 58px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 0 8px 0 4px;
-  border-radius: 6px;
-  background: #1f2937;
-  color: #fff;
-  border: 2px solid var(--bus-color, #fbbf24);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  font-weight: 800;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
+.bus-marker__wrap {
   position: relative;
+  width: 40px;
+  height: 52px;
 }
 
-/* Малка стрелка отдолу като map pin */
-.bus-marker__shell::after {
+/* Bearing arrow - триъгълник който orbit-ва около pin-а в посоката на движение.
+   Само arrow-а се ротира, не и pin-а с номера (иначе номерът ще е нечетим). */
+.bus-marker__arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  transform: rotate(var(--rot, 0deg));
+  transition: transform 0.6s ease-out;
+  pointer-events: none;
+}
+
+.bus-marker__arrow::before {
   content: '';
   position: absolute;
-  bottom: -7px;
+  top: -10px;
   left: 50%;
-  transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 7px solid var(--bus-color, #fbbf24);
+  margin-left: -7px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 11px solid var(--bus-color, #fbbf24);
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.45));
 }
 
-.bus-marker__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
+.bus-marker__pin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
   border-radius: 50%;
   background: var(--bus-color, #fbbf24);
-  color: #1f2937;
-  flex-shrink: 0;
+  border: 2.5px solid #ffffff;
+  box-shadow:
+    0 0 0 1.5px var(--bus-color-dark, #1f2937),
+    0 3px 8px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
-.bus-marker__icon svg {
+.bus-marker__bus {
   width: 14px;
   height: 14px;
+  margin-top: -1px;
+  opacity: 0.95;
 }
 
-.bus-marker__label {
+.bus-marker__num {
   line-height: 1;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
 /* === User location marker (green person icon) === */

@@ -3,8 +3,8 @@ import type { Map as LeafletMap } from 'leaflet'
 import { MapContainer, TileLayer, useMap, CircleMarker, Polyline, Popup } from 'react-leaflet'
 import { DEFAULT_ZOOM, PLOVDIV_CENTER, tileUrlForTheme } from '../config'
 import type {
-  BusPosition,
   GeoPosition,
+  LiveVehicle,
   RouteGeometry,
   Stop,
   Theme,
@@ -145,7 +145,7 @@ export function Map({
   userPosition,
   userRecenterToken,
   favoriteSet,
-  busPositions,
+  liveVehicles,
   routeGeometries,
   onSelectStop,
   onFocusHandled,
@@ -159,7 +159,7 @@ export function Map({
   userPosition: GeoPosition | null
   userRecenterToken: number
   favoriteSet: Set<number>
-  busPositions: BusPosition[]
+  liveVehicles: LiveVehicle[]
   /** За всяка избрана линия - всичките й directions с polyline coords. */
   routeGeometries: { line: string; routes: RouteGeometry[] }[]
   onSelectStop: (stop: Stop) => void
@@ -250,11 +250,8 @@ export function Map({
         position={userPosition}
         recenterToken={userRecenterToken}
       />
-      {busPositions.map((bus, i) => (
-        <BusMarker
-          key={`${bus.line}-${bus.direction}-${bus.toStopNumber}-${i}`}
-          bus={bus}
-        />
+      {liveVehicles.map((v) => (
+        <BusMarker key={v.id} vehicle={v} />
       ))}
     </MapContainer>
   )

@@ -76,6 +76,19 @@ export interface RouteGeometryData {
   lines: Record<string, RouteGeometry[]>
 }
 
+/** Реален GPS vehicle от backend live feed. */
+export interface LiveVehicle {
+  id: string
+  line: string | null
+  destination: string | null
+  lat: number
+  lng: number
+  bearing: number
+  speed: number
+  delayMs: number
+  lastUpdated: number
+}
+
 /** Резултат от position interpolation - bus на картата. */
 export interface BusPosition {
   line: string

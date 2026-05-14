@@ -20,6 +20,13 @@ spike/popup-*.png
 spike/mobile-*.png
 spike/smoke-*.png
 
+# Playwright MCP cache
+.playwright-mcp/
+
+# Reverse-engineering scratch (livetransport.eu recon)
+livetransport-*.json
+livetransport-*.js
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

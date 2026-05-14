@@ -14,6 +14,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getStopETA, type ETAEntry } from './lib/zk-client.ts'
 import { getStaticData } from './lib/static-data.ts'
+import { liveTransport } from './lib/livetransport-client.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -147,8 +148,72 @@ app.get('/api/eta/:stop', async (c) => {
   }
 })
 
+app.get('/api/vehicles', (c) => {
+  const snapshot = liveTransport.getSnapshot()
+  return c.json({ vehicles: snapshot, stats: liveTransport.getStats() })
+})
+
+/**
+ * SSE stream на vehicle updates. Първото event е пълен snapshot,
+ * последващите са delta-та (само променените).
+ */
+app.get('/api/vehicles/stream', (c) => {
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder()
+      let closed = false
+
+      const send = (event: string, data: unknown) => {
+        if (closed) return
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+        } catch {
+          closed = true
+        }
+      }
+
+      const unsubscribe = liveTransport.subscribe((ev) => {
+        send(ev.type, ev.vehicles)
+      })
+
+      // Heartbeat за да не timeout-не proxy/load balancer-а
+      const heartbeat = setInterval(() => {
+        if (closed) return
+        try {
+          controller.enqueue(encoder.encode(`: keepalive\n\n`))
+        } catch {
+          closed = true
+        }
+      }, 25_000)
+
+      c.req.raw.signal.addEventListener('abort', () => {
+        closed = true
+        clearInterval(heartbeat)
+        unsubscribe()
+        try {
+          controller.close()
+        } catch {}
+      })
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
+      Connection: 'keep-alive',
+    },
+  })
+})
+
 const port = parseInt(process.env.PORT ?? '3001', 10)
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`✓ local-api listening on http://localhost:${info.port}`)
   console.log('  Cloudflare Tunnel ще го expose-не публично.')
+})
+
+// Start live GPS feed
+liveTransport.start().catch((err) => {
+  console.error('[livetransport] start failed:', err)
 })

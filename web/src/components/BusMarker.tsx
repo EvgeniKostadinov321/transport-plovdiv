@@ -1,60 +1,69 @@
 import { useMemo } from 'react'
 import L from 'leaflet'
 import { Marker, Tooltip } from 'react-leaflet'
-import { getLineColor } from '../colors'
-import { cleanText } from '../api'
-import type { BusPosition } from '../types'
+import { getLineColor, shadeColor } from '../colors'
+import type { LiveVehicle } from '../types'
 
 /**
- * Bus marker - icon на автобус с цвят на линията + dark badge с номера.
- * Изглежда различно от spirka markers (които са flat circles).
+ * Bus marker - кръгъл pin с bus icon отгоре, line number отдолу, и
+ * външна стрелка показваща bearing (посоката на движение).
+ *
+ * `bearing` се прилага САМО към arrow-а, не към целия marker — иначе текстът
+ * също ще се ротира и ще е нечетим.
  */
-export function BusMarker({ bus }: { bus: BusPosition }) {
-  const lineColor = getLineColor(bus.line)
+export function BusMarker({ vehicle }: { vehicle: LiveVehicle }) {
+  const lineColor = vehicle.line ? getLineColor(vehicle.line) : '#6b7280'
+  const darkShade = shadeColor(lineColor, -0.35)
 
   const icon = useMemo(
     () =>
       L.divIcon({
         className: 'bus-marker',
         html: `
-          <div class="bus-marker__shell" style="--bus-color: ${lineColor};">
-            <span class="bus-marker__icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"/>
-                <path d="M4 14h16"/>
-                <circle cx="7" cy="18" r="1.5"/>
-                <circle cx="17" cy="18" r="1.5"/>
-                <line x1="9" y1="8" x2="9" y2="11"/>
-                <line x1="15" y1="8" x2="15" y2="11"/>
+          <div class="bus-marker__wrap">
+            <span class="bus-marker__arrow" style="--rot: ${vehicle.bearing}deg; --bus-color: ${lineColor};"></span>
+            <div class="bus-marker__pin" style="--bus-color: ${lineColor}; --bus-color-dark: ${darkShade};">
+              <svg class="bus-marker__bus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6v6"/><path d="M16 6v6"/>
+                <path d="M2 12h19.6"/>
+                <path d="M18 18h2a1 1 0 0 0 1-1v-6.65a1 1 0 0 0-.22-.628L19 7c-.5-.5-1-1-2-1H4a2 2 0 0 0-2 2v9c0 .553.447 1 1 1h2"/>
+                <circle cx="7" cy="18" r="2"/>
+                <path d="M9 18h5"/>
+                <circle cx="16" cy="18" r="2"/>
               </svg>
-            </span>
-            <span class="bus-marker__label">${bus.line}</span>
+              <span class="bus-marker__num">${vehicle.line ?? '·'}</span>
+            </div>
           </div>
         `,
-        iconSize: [58, 30],
-        iconAnchor: [29, 15],
+        iconSize: [40, 52],
+        iconAnchor: [20, 26],
       }),
-    [lineColor, bus.line]
+    [lineColor, darkShade, vehicle.line, vehicle.bearing]
   )
+
+  const ageSec = Math.max(0, Math.floor((Date.now() - vehicle.lastUpdated) / 1000))
 
   return (
     <Marker
-      position={[bus.lat, bus.lng]}
+      position={[vehicle.lat, vehicle.lng]}
       icon={icon}
       keyboard={false}
       zIndexOffset={750}
     >
-      <Tooltip direction="top" offset={[0, -12]}>
+      <Tooltip direction="top" offset={[0, -22]}>
         <div style={{ fontSize: 12, lineHeight: 1.4 }}>
           <div>
-            <strong>Линия {bus.line}</strong>
+            <strong>Линия {vehicle.line ?? '—'}</strong>
+            {' '}
+            <span style={{ color: '#aaa' }}>· {vehicle.speed} km/h</span>
           </div>
-          <div style={{ color: '#aaa', fontSize: 11 }}>
-            {cleanText(bus.direction)}
-          </div>
-          <div style={{ marginTop: 4 }}>
-            След <strong>{bus.minutesToNext} мин</strong>:{' '}
-            <strong>#{bus.toStopNumber}</strong> {cleanText(bus.toStopName)}
+          {vehicle.destination && (
+            <div style={{ color: '#aaa', fontSize: 11 }}>
+              → {vehicle.destination}
+            </div>
+          )}
+          <div style={{ color: '#888', fontSize: 10, marginTop: 4 }}>
+            обновено преди {ageSec}s
           </div>
         </div>
       </Tooltip>
