@@ -9,7 +9,7 @@ import type {
   Stop,
   Theme,
 } from '../types'
-import { getLineColor, getStopColor } from '../colors'
+import { getLineColor, getStopColor, shadeColor } from '../colors'
 import { BusMarker } from './BusMarker'
 import { StopMarker } from './StopMarker'
 import { StopPopupContent } from './StopPopupContent'
@@ -186,21 +186,29 @@ export function Map({
       <TileLayer url={tileUrlForTheme(theme)} key={theme} />
       {/* Route polylines - под спирките */}
       {routeGeometries.map(({ line, routes }) => {
-        const color = getLineColor(line)
-        return routes.map((route, ri) => (
-          <Polyline
-            key={`${line}-${route.osmId}-${ri}`}
-            positions={route.coords}
-            pathOptions={{
-              color,
-              weight: 4,
-              opacity: 0.65,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-            interactive={false}
-          />
-        ))
+        const base = getLineColor(line)
+        return routes.map((route, ri) => {
+          // ri=0 светъл нюанс (плътна линия); ri=1 тъмен нюанс (dashed);
+          // ri>=2 (рядко: линии 9/18/93 имат алтернативни маршрути) → base color
+          const color =
+            ri === 0 ? shadeColor(base, 0.25) : ri === 1 ? shadeColor(base, -0.3) : base
+          const dashArray = ri === 1 ? '10, 8' : undefined
+          return (
+            <Polyline
+              key={`${line}-${route.osmId}-${ri}`}
+              positions={route.coords}
+              pathOptions={{
+                color,
+                weight: 4,
+                opacity: 0.7,
+                lineCap: 'round',
+                lineJoin: 'round',
+                dashArray,
+              }}
+              interactive={false}
+            />
+          )
+        })
       })}
       {stops.map((stop) => {
         const isFocused =

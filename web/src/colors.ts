@@ -37,6 +37,31 @@ export function getLineColor(line: string): string {
 }
 
 /**
+ * Осветлява/затъмнява hex цвят с given amount (-1..1).
+ * Positive amount → светъл, negative → тъмен.
+ */
+export function shadeColor(hex: string, amount: number): string {
+  const m = hex.match(/^#([0-9a-f]{6})$/i)
+  if (!m) return hex
+  const num = parseInt(m[1], 16)
+  let r = (num >> 16) & 0xff
+  let g = (num >> 8) & 0xff
+  let b = num & 0xff
+  if (amount > 0) {
+    r = Math.round(r + (255 - r) * amount)
+    g = Math.round(g + (255 - g) * amount)
+    b = Math.round(b + (255 - b) * amount)
+  } else {
+    const f = 1 + amount // amount е negative → 1 + (-0.3) = 0.7
+    r = Math.round(r * f)
+    g = Math.round(g * f)
+    b = Math.round(b * f)
+  }
+  const toHex = (v: number) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+/**
  * Връща primary color за набор от линии — взимаме на цвета на ПЪРВАТА (sorted) line.
  * Това гарантира, че спирка обслужвана от линии [18, 99] винаги има цвета на 18.
  */
