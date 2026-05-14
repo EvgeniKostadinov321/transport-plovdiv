@@ -513,16 +513,7 @@ function App() {
         onChange={setSelectedLines}
         theme={theme}
         onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-        isTouch={isTouch}
       />
-      {isTouch && (
-        <Toolbar
-          theme={theme}
-          onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-          hasFilter={!noFilter}
-          onClearFilter={() => setSelectedLines([])}
-        />
-      )}
       {showEmptyState && (
         <div className="empty-state">
           <div className="empty-state__icon">🚏</div>
@@ -550,90 +541,6 @@ function App() {
   )
 }
 
-function Toolbar({
-  theme,
-  onToggleTheme,
-  hasFilter,
-  onClearFilter,
-}: {
-  theme: Theme
-  onToggleTheme: () => void
-  hasFilter: boolean
-  onClearFilter: () => void
-}) {
-  return (
-    <div className="toolbar">
-      {hasFilter && (
-        <button
-          type="button"
-          className="toolbar__btn"
-          onClick={onClearFilter}
-          aria-label="Изчисти филтъра"
-          title="Покажи всички спирки"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
-            <line x1="3" y1="3" x2="21" y2="21" />
-          </svg>
-        </button>
-      )}
-      <button
-        type="button"
-        className="toolbar__btn"
-        onClick={onToggleTheme}
-        aria-label={theme === 'dark' ? 'Светъл режим' : 'Тъмен режим'}
-        title={theme === 'dark' ? 'Светъл режим' : 'Тъмен режим'}
-      >
-        {theme === 'dark' ? (
-          // Sun icon
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="5" />
-            <line x1="12" y1="1" x2="12" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="23" />
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-            <line x1="1" y1="12" x2="3" y2="12" />
-            <line x1="21" y1="12" x2="23" y2="12" />
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-          </svg>
-        ) : (
-          // Moon icon
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        )}
-      </button>
-    </div>
-  )
-}
 
 function LineSelector({
   allLines,
@@ -643,7 +550,6 @@ function LineSelector({
   onChange,
   theme,
   onToggleTheme,
-  isTouch,
 }: {
   allLines: string[]
   selected: string[]
@@ -652,7 +558,6 @@ function LineSelector({
   onChange: (next: string[]) => void
   theme: Theme
   onToggleTheme: () => void
-  isTouch: boolean
 }) {
   const [open, setOpen] = useState(false)
   const selectedSet = new Set(selected)
@@ -714,9 +619,8 @@ function LineSelector({
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
-        {!isTouch && (
-          <div className="line-selector__actions">
-            {hasFilter && (
+        <div className="line-selector__actions">
+          {hasFilter && (
               <button
                 type="button"
                 className="line-selector__action"
@@ -782,8 +686,7 @@ function LineSelector({
                 </svg>
               )}
             </button>
-          </div>
-        )}
+        </div>
       </div>
       {open && (
         <div className="line-selector__panel">
