@@ -11,6 +11,7 @@ Live автобуси Пловдив. PWA с карта на спирките, r
 - **ETA на спирка** (live от transport.plovdiv.bg при tap)
 - **Bus trip popup** — click на автобус → списък със спирки, scheduled times, текуща позиция, закъснение
 - **Live маршрути per линия** (encoded polylines от livetransport)
+- **Trip planner** (FAB долу-дясно) — от точка А до точка Б, с прехвърляния. MapTiler geocoding за destination search. In-house multi-objective Dijkstra: fastest / fewest-transfers / least-walking
 - **Геолокация, favorites, theme switching, PWA install, offline cache**
 
 ## Architecture
@@ -62,6 +63,8 @@ local-api/           Node + Hono API (deploy: Delta VPS)
 └── lib/
     ├── livetransport-client.ts   WS клиент + snapshot + line/stop mapping
     ├── trips-client.ts           Trip proxy + LRU cache + polyline decoder
+    ├── transit-graph.ts          Routing graph build от live trips + walk edges
+    ├── route-planner.ts          Multi-objective Dijkstra (3 alternatives)
     ├── polyline.ts               Google encoded polyline decoder
     ├── zk-client.ts              ZK Framework scraping за ETA
     └── static-data.ts            Spirki / lines reference data
@@ -80,6 +83,8 @@ spike/                Research артифакти (test-livetransport-ws.ts, FIN
 | `GET /api/vehicles/stream` | SSE stream — snapshot + delta updates. |
 | `GET /api/line/:line/trips` | Trip polylines (decoded) за избрана линия. 5 min server cache. |
 | `GET /api/vehicle/:id/trip` | Trip status за конкретен автобус (nextStop + delay + stops). 30s cache. |
+| `POST /api/route/plan` | Trip planner. Body: `{fromLat, fromLng, toLat, toLng}`. Връща до 3 alternatives (fastest / fewestTransfers / leastWalking) с walk + ride legs. Изисква transit graph да е ready. |
+| `GET /api/route/stats` | Debug — graph build state (stops, edges, lines covered, last build time). |
 
 ## Локално dev
 
@@ -121,7 +126,11 @@ journalctl -u transport-api -f
 [livetransport] bootstrap loaded: 29 lines, 485 stops
 [livetransport] connecting to wss://api.livetransport.eu/plovdiv
 [livetransport] WS open
+[transit-graph] building…
+[transit-graph] built in ~10000-15000ms: 485 stops, ~3000 edges, 29 lines
 ```
+
+Routing graph се build-ва ~10-15s след livetransport bootstrap. `POST /api/route/plan` връща `503 routing graph not ready` ако се удари преди това.
 
 ## Tech stack
 
