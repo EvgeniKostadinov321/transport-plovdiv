@@ -22,3 +22,16 @@ export interface ETAResponse {
 }
 
 export type Theme = 'light' | 'dark'
+
+export interface Favorite {
+  stopNumber: number
+  label?: string
+  pinnedAt: number
+}
+
+export interface GeoPosition {
+  lat: number
+  lng: number
+  accuracy: number
+  timestamp: number
+}

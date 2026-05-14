@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
-import type { Map as LeafletMap, CircleMarker as LeafletCircleMarker } from 'leaflet'
+import type { Map as LeafletMap } from 'leaflet'
 import { MapContainer, TileLayer, useMap, CircleMarker, Popup } from 'react-leaflet'
 import { DEFAULT_ZOOM, PLOVDIV_CENTER, tileUrlForTheme } from '../config'
-import type { Stop, Theme } from '../types'
+import type { GeoPosition, Stop, Theme } from '../types'
 import { StopMarker } from './StopMarker'
 import { StopPopupContent } from './StopPopupContent'
+import { UserLocationMarker } from './UserLocationMarker'
 import { fetchETA } from '../api'
 import { getStopColor } from '../colors'
 
@@ -33,58 +34,85 @@ function MapFocusController({
 }
 
 /**
+ * Първо location fix → center map. След това не пипаме (потребителят може да пан-не).
+ */
+function UserLocationCentering({ position }: { position: GeoPosition | null }) {
+  const map = useMap()
+  const centeredOnceRef = useRef(false)
+  useEffect(() => {
+    if (!position || centeredOnceRef.current) return
+    map.flyTo([position.lat, position.lng], Math.max(map.getZoom(), 15), {
+      duration: 0.6,
+    })
+    centeredOnceRef.current = true
+  }, [position, map])
+  return null
+}
+
+/**
  * Ad-hoc marker за focused stop (от search) - винаги се показва дори когато
- * филтърът би го скрил. Auto-opens popup на desktop.
+ * филтърът би го скрил.
  */
 function FocusMarker({
   stop,
   filterLines,
   isTouch,
+  isFavorite,
   onSelect,
+  onToggleFavorite,
 }: {
   stop: Stop
   filterLines: Set<string>
   isTouch: boolean
+  isFavorite: boolean
   onSelect: (stop: Stop) => void
+  onToggleFavorite: (stopNumber: number) => void
 }) {
-  const markerRef = useRef<LeafletCircleMarker | null>(null)
-
-  // Auto-open popup на desktop
-  useEffect(() => {
-    if (isTouch) return
-    const t = setTimeout(() => {
-      markerRef.current?.openPopup()
-    }, 700)
-    return () => clearTimeout(t)
-  }, [stop.number, isTouch])
-
   const color = getStopColor(stop.lines, filterLines)
   return (
-    <CircleMarker
-      ref={markerRef}
-      center={[stop.lat, stop.lng]}
-      radius={9}
-      pathOptions={{
-        fillColor: color,
-        fillOpacity: 1,
-        color: '#fff',
-        weight: 3,
-      }}
-      eventHandlers={{
-        click: () => {
-          if (isTouch) {
-            fetchETA(stop.number).catch(() => {})
-            onSelect(stop)
-          }
-        },
-      }}
-    >
-      {!isTouch && (
-        <Popup>
-          <StopPopupContent stop={stop} filterLines={filterLines} />
-        </Popup>
+    <>
+      {isFavorite && (
+        <CircleMarker
+          center={[stop.lat, stop.lng]}
+          radius={13}
+          pathOptions={{
+            fillOpacity: 0,
+            color: '#f5b400',
+            weight: 3,
+          }}
+          interactive={false}
+        />
       )}
-    </CircleMarker>
+      <CircleMarker
+        center={[stop.lat, stop.lng]}
+        radius={9}
+        pathOptions={{
+          fillColor: color,
+          fillOpacity: 1,
+          color: '#fff',
+          weight: 3,
+        }}
+        eventHandlers={{
+          click: () => {
+            if (isTouch) {
+              fetchETA(stop.number).catch(() => {})
+              onSelect(stop)
+            }
+          },
+        }}
+      >
+        {!isTouch && (
+          <Popup>
+            <StopPopupContent
+              stop={stop}
+              filterLines={filterLines}
+              isFavorite={isFavorite}
+              onToggleFavorite={onToggleFavorite}
+            />
+          </Popup>
+        )}
+      </CircleMarker>
+    </>
   )
 }
 
@@ -94,20 +122,25 @@ export function Map({
   theme,
   isTouch,
   focusStop,
+  userPosition,
+  favoriteSet,
   onSelectStop,
   onFocusHandled,
+  onToggleFavorite,
 }: {
   stops: Stop[]
   filterLines: Set<string>
   theme: Theme
   isTouch: boolean
   focusStop: Stop | null
+  userPosition: GeoPosition | null
+  favoriteSet: Set<number>
   onSelectStop: (stop: Stop) => void
   onFocusHandled: () => void
+  onToggleFavorite: (stopNumber: number) => void
 }) {
   const mapRef = useRef<LeafletMap | null>(null)
 
-  /** Когато се focus-не stop който не е в visible списъка - все пак го показваме като extra marker. */
   const focusInVisible = focusStop
     ? stops.some((s) => s.number === focusStop.number && s.lat === focusStop.lat)
     : true
@@ -136,7 +169,9 @@ export function Map({
             isTouch={isTouch}
             filterLines={filterLines}
             autoOpenPopup={isFocused}
+            isFavorite={favoriteSet.has(stop.number)}
             onSelect={onSelectStop}
+            onToggleFavorite={onToggleFavorite}
           />
         )
       })}
@@ -145,7 +180,9 @@ export function Map({
           stop={focusStop}
           filterLines={filterLines}
           isTouch={isTouch}
+          isFavorite={favoriteSet.has(focusStop.number)}
           onSelect={onSelectStop}
+          onToggleFavorite={onToggleFavorite}
         />
       )}
       {focusStop && (
@@ -155,6 +192,8 @@ export function Map({
           onFocusHandled={onFocusHandled}
         />
       )}
+      {userPosition && <UserLocationMarker position={userPosition} />}
+      <UserLocationCentering position={userPosition} />
     </MapContainer>
   )
 }

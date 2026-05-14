@@ -11,14 +11,17 @@ export function StopMarker({
   isTouch,
   filterLines,
   autoOpenPopup,
+  isFavorite,
   onSelect,
+  onToggleFavorite,
 }: {
   stop: Stop
   isTouch: boolean
   filterLines: Set<string>
-  /** Ако е true и не е touch - auto-open popup-а при mount/change. */
   autoOpenPopup?: boolean
+  isFavorite?: boolean
   onSelect: (stop: Stop) => void
+  onToggleFavorite?: (stopNumber: number) => void
 }) {
   const prefetchTimer = useRef<number | null>(null)
   const markerRef = useRef<LeafletCircleMarker | null>(null)
@@ -33,58 +36,78 @@ export function StopMarker({
     }
   }, [autoOpenPopup, isTouch, stop.number])
 
-  // На desktop: hover prefetch + popup. На mobile: tap → bottom sheet (no popup)
-  if (isTouch) {
-    return (
-      <CircleMarker
-        ref={markerRef}
-        center={[stop.lat, stop.lng]}
-        radius={9}
-        pathOptions={{
-          fillColor: color,
-          fillOpacity: 0.9,
-          color: '#fff',
-          weight: 2,
-        }}
-        eventHandlers={{
-          click: () => {
-            fetchETA(stop.number).catch(() => {})
-            onSelect(stop)
-          },
-        }}
-      />
-    )
-  }
+  const baseRadius = isTouch ? 9 : filterLines.size > 0 ? 6 : 5
+  const baseWeight = isTouch ? 2 : filterLines.size > 0 ? 2 : 1
+  const baseOpacity = isTouch ? 0.9 : filterLines.size > 0 ? 0.9 : 0.7
 
   return (
-    <CircleMarker
-      ref={markerRef}
-      center={[stop.lat, stop.lng]}
-      radius={filterLines.size > 0 ? 6 : 5}
-      pathOptions={{
-        fillColor: color,
-        fillOpacity: filterLines.size > 0 ? 0.9 : 0.7,
-        color: '#fff',
-        weight: filterLines.size > 0 ? 2 : 1,
-      }}
-      eventHandlers={{
-        mouseover: () => {
-          if (prefetchTimer.current) window.clearTimeout(prefetchTimer.current)
-          prefetchTimer.current = window.setTimeout(() => {
-            fetchETA(stop.number).catch(() => {})
-          }, 150)
-        },
-        mouseout: () => {
-          if (prefetchTimer.current) {
-            window.clearTimeout(prefetchTimer.current)
-            prefetchTimer.current = null
-          }
-        },
-      }}
-    >
-      <Popup>
-        <StopPopupContent stop={stop} filterLines={filterLines} />
-      </Popup>
-    </CircleMarker>
+    <>
+      {isFavorite && (
+        <CircleMarker
+          center={[stop.lat, stop.lng]}
+          radius={baseRadius + 4}
+          pathOptions={{
+            fillOpacity: 0,
+            color: '#f5b400',
+            weight: 2.5,
+          }}
+          interactive={false}
+        />
+      )}
+      {isTouch ? (
+        <CircleMarker
+          ref={markerRef}
+          center={[stop.lat, stop.lng]}
+          radius={baseRadius}
+          pathOptions={{
+            fillColor: color,
+            fillOpacity: baseOpacity,
+            color: '#fff',
+            weight: baseWeight,
+          }}
+          eventHandlers={{
+            click: () => {
+              fetchETA(stop.number).catch(() => {})
+              onSelect(stop)
+            },
+          }}
+        />
+      ) : (
+        <CircleMarker
+          ref={markerRef}
+          center={[stop.lat, stop.lng]}
+          radius={baseRadius}
+          pathOptions={{
+            fillColor: color,
+            fillOpacity: baseOpacity,
+            color: '#fff',
+            weight: baseWeight,
+          }}
+          eventHandlers={{
+            mouseover: () => {
+              if (prefetchTimer.current) window.clearTimeout(prefetchTimer.current)
+              prefetchTimer.current = window.setTimeout(() => {
+                fetchETA(stop.number).catch(() => {})
+              }, 150)
+            },
+            mouseout: () => {
+              if (prefetchTimer.current) {
+                window.clearTimeout(prefetchTimer.current)
+                prefetchTimer.current = null
+              }
+            },
+          }}
+        >
+          <Popup>
+            <StopPopupContent
+              stop={stop}
+              filterLines={filterLines}
+              isFavorite={isFavorite}
+              onToggleFavorite={onToggleFavorite}
+            />
+          </Popup>
+        </CircleMarker>
+      )}
+    </>
   )
 }

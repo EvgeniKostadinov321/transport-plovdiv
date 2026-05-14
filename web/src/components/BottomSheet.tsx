@@ -5,10 +5,14 @@ import { StopPopupContent } from './StopPopupContent'
 export function BottomSheet({
   stop,
   filterLines,
+  isFavorite,
+  onToggleFavorite,
   onClose,
 }: {
   stop: Stop
   filterLines: Set<string>
+  isFavorite?: boolean
+  onToggleFavorite?: (stopNumber: number) => void
   onClose: () => void
 }) {
   useEffect(() => {
@@ -29,7 +33,12 @@ export function BottomSheet({
           onClick={onClose}
           aria-label="Затвори"
         />
-        <StopPopupContent stop={stop} filterLines={filterLines} />
+        <StopPopupContent
+          stop={stop}
+          filterLines={filterLines}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+        />
       </div>
     </>
   )

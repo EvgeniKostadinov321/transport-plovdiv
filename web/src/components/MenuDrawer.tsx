@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { Stop, Theme } from '../types'
+import type { GeoStatus } from '../hooks/useGeolocation'
+import type { Favorite, Stop, Theme } from '../types'
 import { FavoritesTab } from './tabs/FavoritesTab'
 import { LinesTab } from './tabs/LinesTab'
 import { SettingsTab } from './tabs/SettingsTab'
@@ -71,9 +72,18 @@ export function MenuDrawer({
   // Stops tab
   stops,
   onSelectStop,
+  // Favorites tab
+  favorites,
+  onRemoveFavorite,
   // Settings tab
   theme,
   onToggleTheme,
+  geoStatus,
+  geoError,
+  geoActive,
+  onToggleGeo,
+  // Optional: initial tab
+  initialTab,
 }: {
   open: boolean
   onClose: () => void
@@ -84,12 +94,22 @@ export function MenuDrawer({
   totalStopsCount: number
   stops: Stop[]
   onSelectStop: (stop: Stop) => void
+  favorites: Favorite[]
+  onRemoveFavorite: (stopNumber: number) => void
   theme: Theme
   onToggleTheme: () => void
+  geoStatus: GeoStatus
+  geoError: string | null
+  geoActive: boolean
+  onToggleGeo: () => void
+  initialTab?: TabId
 }) {
-  const [activeTab, setActiveTab] = useState<TabId>('lines')
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? 'lines')
 
-  // ESC за close
+  useEffect(() => {
+    if (open && initialTab) setActiveTab(initialTab)
+  }, [open, initialTab])
+
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -144,6 +164,12 @@ export function MenuDrawer({
                 {t.icon}
               </span>
               <span className="drawer__tab-label">{t.label}</span>
+              {t.id === 'favorites' && favorites.length > 0 && (
+                <span className="drawer__tab-badge">{favorites.length}</span>
+              )}
+              {t.id === 'lines' && selectedLines.length > 0 && (
+                <span className="drawer__tab-badge">{selectedLines.length}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -166,9 +192,26 @@ export function MenuDrawer({
               }}
             />
           )}
-          {activeTab === 'favorites' && <FavoritesTab />}
+          {activeTab === 'favorites' && (
+            <FavoritesTab
+              favorites={favorites}
+              stops={stops}
+              onSelectStop={(s) => {
+                onSelectStop(s)
+                onClose()
+              }}
+              onRemove={onRemoveFavorite}
+            />
+          )}
           {activeTab === 'settings' && (
-            <SettingsTab theme={theme} onToggleTheme={onToggleTheme} />
+            <SettingsTab
+              theme={theme}
+              onToggleTheme={onToggleTheme}
+              geoStatus={geoStatus}
+              geoError={geoError}
+              geoActive={geoActive}
+              onToggleGeo={onToggleGeo}
+            />
           )}
         </div>
       </div>

@@ -7,9 +7,13 @@ import type { ETAResponse, Stop } from '../types'
 export function StopPopupContent({
   stop,
   filterLines,
+  isFavorite,
+  onToggleFavorite,
 }: {
   stop: Stop
   filterLines: Set<string>
+  isFavorite?: boolean
+  onToggleFavorite?: (stopNumber: number) => void
 }) {
   const [data, setData] = useState<ETAResponse | null>(() => getCachedETA(stop.number))
   const [loading, setLoading] = useState(!data)
@@ -88,11 +92,42 @@ export function StopPopupContent({
     : []
   const hiddenCount = data ? data.etas.length - visibleEtas.length : 0
 
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggleFavorite?.(stop.number)
+  }
+
   return (
     <div className="eta-popup">
       <div className="eta-popup__title">
         <span className="eta-popup__stop-num">#{stop.number}</span>
         <span className="eta-popup__stop-name">{cleanText(stop.name)}</span>
+        {onToggleFavorite && (
+          <button
+            type="button"
+            className={
+              isFavorite
+                ? 'eta-popup__pin eta-popup__pin--active'
+                : 'eta-popup__pin'
+            }
+            onClick={handlePinClick}
+            aria-label={isFavorite ? 'Премахни от любими' : 'Добави в любими'}
+            title={isFavorite ? 'Премахни от любими' : 'Добави в любими'}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill={isFavorite ? '#f5b400' : 'none'}
+              stroke={isFavorite ? '#f5b400' : 'currentColor'}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </button>
+        )}
       </div>
       {loading && !data && <div className="eta-popup__msg">Зареждане…</div>}
       {error && <div className="eta-popup__msg eta-popup__msg--err">Грешка: {error}</div>}

@@ -1,11 +1,20 @@
+import type { GeoStatus } from '../../hooks/useGeolocation'
 import type { Theme } from '../../types'
 
 export function SettingsTab({
   theme,
   onToggleTheme,
+  geoStatus,
+  geoError,
+  geoActive,
+  onToggleGeo,
 }: {
   theme: Theme
   onToggleTheme: () => void
+  geoStatus: GeoStatus
+  geoError: string | null
+  geoActive: boolean
+  onToggleGeo: () => void
 }) {
   return (
     <div className="settings-tab">
@@ -27,6 +36,35 @@ export function SettingsTab({
             aria-label="Тъмен режим"
             role="switch"
             aria-checked={theme === 'dark'}
+          >
+            <span className="toggle-switch__handle" />
+          </button>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">Локация</div>
+        <div className="settings-row">
+          <div className="settings-row__label">
+            <div className="settings-row__name">Покажи моята позиция</div>
+            <div className="settings-row__desc">
+              {geoStatus === 'tracking' && 'Активно: получаваме твоята локация.'}
+              {geoStatus === 'requesting' && 'Свързване с локационни услуги…'}
+              {geoStatus === 'denied' && 'Браузърът отказа достъп до локацията.'}
+              {geoStatus === 'error' && (geoError ?? 'Грешка при локацията.')}
+              {geoStatus === 'idle' &&
+                'Картата ще се центрира на твоята позиция.'}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={
+              geoActive ? 'toggle-switch toggle-switch--on' : 'toggle-switch'
+            }
+            onClick={onToggleGeo}
+            aria-label="Локация"
+            role="switch"
+            aria-checked={geoActive}
           >
             <span className="toggle-switch__handle" />
           </button>
