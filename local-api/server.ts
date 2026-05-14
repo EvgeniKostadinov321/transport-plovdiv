@@ -12,6 +12,8 @@ import { cors } from 'hono/cors'
 import { getStopETA, type ETAEntry } from './lib/zk-client.ts'
 import { getStaticData } from './lib/static-data.ts'
 import { liveTransport } from './lib/livetransport-client.ts'
+import { plan } from './lib/route-planner.ts'
+import { transitGraph } from './lib/transit-graph.ts'
 import { getTripsForLine, getVehicleTripStatus } from './lib/trips-client.ts'
 
 const app = new Hono()
@@ -118,6 +120,44 @@ app.get('/api/line/:line/trips', async (c) => {
 })
 
 /**
+ * Route planning. POST /api/route/plan
+ * Body: { fromLat, fromLng, toLat, toLng }
+ *
+ * Връща до 3 различни opции (fastest / fewestTransfers / leastWalking)
+ * с legs (walk + ride sequences).
+ */
+app.post('/api/route/plan', async (c) => {
+  let body: { fromLat?: unknown; fromLng?: unknown; toLat?: unknown; toLng?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid JSON body' }, 400)
+  }
+  const fromLat = Number(body.fromLat)
+  const fromLng = Number(body.fromLng)
+  const toLat = Number(body.toLat)
+  const toLng = Number(body.toLng)
+  if (![fromLat, fromLng, toLat, toLng].every((n) => Number.isFinite(n))) {
+    return c.json({ error: 'fromLat, fromLng, toLat, toLng required' }, 400)
+  }
+  if (!transitGraph.isReady()) {
+    return c.json({ error: 'routing graph not ready' }, 503)
+  }
+  try {
+    const result = plan({ fromLat, fromLng, toLat, toLng })
+    return c.json(result)
+  } catch (err) {
+    console.error('[route-planner] error:', err)
+    return c.json(
+      { error: 'planning failed', details: err instanceof Error ? err.message : String(err) },
+      500
+    )
+  }
+})
+
+app.get('/api/route/stats', (c) => c.json(transitGraph.getStats()))
+
+/**
  * Trip status за конкретен автобус.
  * `:id` е URL-encoded (`3/PB0533CE` → `3%2FPB0533CE`).
  */
@@ -221,7 +261,11 @@ serve({ fetch: app.fetch, port }, (info) => {
   console.log('  Cloudflare Tunnel ще го expose-не публично.')
 })
 
-// Start live GPS feed
+// Start live GPS feed + routing graph
 liveTransport.start().catch((err) => {
   console.error('[livetransport] start failed:', err)
+})
+
+transitGraph.start().catch((err) => {
+  console.error('[transit-graph] start failed:', err)
 })

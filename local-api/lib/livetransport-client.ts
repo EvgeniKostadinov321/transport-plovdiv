@@ -60,6 +60,11 @@ export interface StopMeta {
   name: string
 }
 
+interface StopGeo {
+  lat: number
+  lng: number
+}
+
 class LiveTransportClient {
   private ws: WebSocket | null = null
   private vehicles = new Map<string, Vehicle>()
@@ -67,6 +72,8 @@ class LiveTransportClient {
   private lineIdToName = new Map<string, string>()
   /** stopId (тех. вътрешен) → { code, name } */
   private stopIdToMeta = new Map<string, StopMeta>()
+  /** stopId → [lat, lng]. Източник: bootstrap data. */
+  private stopIdToGeo = new Map<string, StopGeo>()
   private listeners = new Set<Listener>()
   private reconnectDelay = 1000
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -109,6 +116,17 @@ class LiveTransportClient {
     return this.stopIdToMeta.get(stopId) ?? null
   }
 
+  /** Coords на спирка. Връща `[lat, lng]` или null ако stopId неизвестен. */
+  getStopGeo(stopId: string): [number, number] | null {
+    const g = this.stopIdToGeo.get(stopId)
+    return g ? [g.lat, g.lng] : null
+  }
+
+  /** Всички stopId-та (за transit graph builder). */
+  getAllStopIds(): string[] {
+    return [...this.stopIdToMeta.keys()]
+  }
+
   getStats() {
     return {
       connected: this.connected,
@@ -132,6 +150,12 @@ class LiveTransportClient {
           code: stop.code,
           name: stop.name?.bg ?? stop.name?.en ?? '',
         })
+        if (stop.geo?.coords) {
+          this.stopIdToGeo.set(stop.id, {
+            lat: stop.geo.coords[0],
+            lng: stop.geo.coords[1],
+          })
+        }
       }
       console.log(
         `[livetransport] bootstrap loaded: ${this.lineIdToName.size} lines, ${this.stopIdToMeta.size} stops`

@@ -1,7 +1,9 @@
 import { API_URL, CLIENT_CACHE_TTL_MS } from './config'
 import type {
   ETAResponse,
+  GeocodeResult,
   LiveTrip,
+  RoutePlanResult,
   Stop,
   VehicleTrip,
 } from './types'
@@ -65,6 +67,51 @@ export async function fetchLines(): Promise<string[]> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   const data = (await res.json()) as { lines: string[] }
   return data.lines
+}
+
+export async function planRoute(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): Promise<RoutePlanResult> {
+  const res = await fetch(`${API_URL}/api/route/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fromLat: from.lat,
+      fromLng: from.lng,
+      toLat: to.lat,
+      toLng: to.lng,
+    }),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return (await res.json()) as RoutePlanResult
+}
+
+/** MapTiler Geocoding API. Search-ва само в България чрез country code. */
+export async function geocode(query: string): Promise<GeocodeResult[]> {
+  const key = import.meta.env.VITE_MAPTILER_KEY
+  if (!key || !query.trim()) return []
+  const url = new URL(
+    `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json`
+  )
+  url.searchParams.set('key', key)
+  url.searchParams.set('country', 'BG')
+  url.searchParams.set('language', 'bg')
+  // Bias към Plovdiv area
+  url.searchParams.set('proximity', '24.7453,42.1354')
+  url.searchParams.set('limit', '5')
+  const res = await fetch(url.toString())
+  if (!res.ok) return []
+  const data = (await res.json()) as {
+    features?: { place_name?: string; text?: string; center?: [number, number] }[]
+  }
+  return (data.features ?? [])
+    .filter((f) => f.center && f.center.length === 2)
+    .map((f) => ({
+      label: f.place_name ?? f.text ?? '',
+      lat: f.center![1],
+      lng: f.center![0],
+    }))
 }
 
 export async function fetchVehicleTrip(vehicleId: string): Promise<VehicleTrip> {

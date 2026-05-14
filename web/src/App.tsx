@@ -21,6 +21,9 @@ const BusTripSheet = lazy(() =>
 const GeoIntroModal = lazy(() =>
   import('./components/GeoIntroModal').then((m) => ({ default: m.GeoIntroModal }))
 )
+const TripPlanner = lazy(() =>
+  import('./components/TripPlanner').then((m) => ({ default: m.TripPlanner }))
+)
 import { useFavorites } from './hooks/useFavorites'
 import { useLineTrips } from './hooks/useLineTrips'
 import { useLiveVehicles } from './hooks/useLiveVehicles'
@@ -34,13 +37,15 @@ import {
   markGeoIntroShown,
   saveSelectedLines,
 } from './storage'
-import type { LiveVehicle, Stop } from './types'
+import type { LiveVehicle, RouteOption, Stop } from './types'
 
 function App() {
   const { stops, allLines } = useStopsAndLines()
   const [selectedLines, setSelectedLines] = useState<string[]>(loadSelectedLines)
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null)
   const [selectedVehicle, setSelectedVehicle] = useState<LiveVehicle | null>(null)
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false)
+  const [plannedRoute, setPlannedRoute] = useState<RouteOption | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   /** Веднъж отворено меню → остава mounted (с open=false), за да запази state. */
   const [menuEverOpened, setMenuEverOpened] = useState(false)
@@ -166,6 +171,7 @@ function App() {
         favoriteSet={favoriteSet}
         liveVehicles={liveVehicles}
         routeGeometries={routeGeometries}
+        plannedRoute={plannedRoute}
         onSelectStop={(s) => {
           setSelectedVehicle(null)
           setSelectedStop(s)
@@ -192,6 +198,18 @@ function App() {
           onClick={() => openMenu()}
         />
       </div>
+      <button
+        type="button"
+        className="trip-fab"
+        onClick={() => setTripPlannerOpen(true)}
+        aria-label="Планирай пътуване"
+        title="Планирай пътуване"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="3" />
+          <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 12 8 12s8-6.5 8-12a8 8 0 0 0-8-8z" />
+        </svg>
+      </button>
       <Suspense fallback={null}>
         {menuEverOpened && (
           <MenuDrawer
@@ -237,6 +255,17 @@ function App() {
               selectedVehicle
             }
             onClose={() => setSelectedVehicle(null)}
+          />
+        )}
+        {tripPlannerOpen && (
+          <TripPlanner
+            geo={geo.position}
+            selectedOption={plannedRoute}
+            onSelectOption={setPlannedRoute}
+            onClose={() => {
+              setTripPlannerOpen(false)
+              setPlannedRoute(null)
+            }}
           />
         )}
       </Suspense>

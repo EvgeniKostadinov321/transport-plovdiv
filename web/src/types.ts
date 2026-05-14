@@ -58,6 +58,62 @@ export interface VehicleTrip {
   stops: VehicleTripStop[]
 }
 
+// === Trip planning ===
+
+export type RoutePlanKind = 'fastest' | 'fewestTransfers' | 'leastWalking'
+
+export interface RouteWalkLeg {
+  type: 'walk'
+  kind: 'access' | 'egress' | 'transfer'
+  meters: number
+  minutes: number
+  fromCoord?: [number, number]
+  toCoord?: [number, number]
+  fromStopId?: string
+  toStopId?: string
+  fromStopName?: string
+  toStopName?: string
+  fromStopCode?: string
+  toStopCode?: string
+}
+
+export interface RouteRideLeg {
+  type: 'ride'
+  line: string
+  fromStopId: string
+  toStopId: string
+  fromStopName: string
+  toStopName: string
+  fromStopCode: string
+  toStopCode: string
+  minutes: number
+  stops: { id: string; code: string; name: string; lat: number; lng: number }[]
+}
+
+export type RouteLeg = RouteWalkLeg | RouteRideLeg
+
+export interface RouteOption {
+  kind: RoutePlanKind
+  totalMinutes: number
+  walkMinutes: number
+  rideMinutes: number
+  transferCount: number
+  legs: RouteLeg[]
+}
+
+export interface RoutePlanResult {
+  options: RouteOption[]
+  accessStopCount: number
+  egressStopCount: number
+}
+
+export interface GeocodeResult {
+  /** Display label (e.g. "Mall Plovdiv, Пловдив"). */
+  label: string
+  lat: number
+  lng: number
+}
+
 /** Live trip от livetransport — decoded polyline + destination. */
 export interface LiveTrip {
   id: string

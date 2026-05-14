@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
-import type { Map as LeafletMap } from 'leaflet'
+import { useEffect, useMemo, useRef } from 'react'
+import L, { type Map as LeafletMap } from 'leaflet'
 import { MapContainer, TileLayer, useMap, CircleMarker, Polyline, Popup } from 'react-leaflet'
 import { DEFAULT_ZOOM, PLOVDIV_CENTER, tileUrlForTheme } from '../config'
 import type {
   GeoPosition,
   LiveVehicle,
+  RouteOption,
   Stop,
   Theme,
 } from '../types'
@@ -135,6 +136,89 @@ function FocusMarker({
   )
 }
 
+/**
+ * Render-ва избран trip-plan маршрут върху картата:
+ * - ride legs като дебели цветни линии (line color)
+ * - walk legs като пунктирани сиви линии
+ * - origin (green dot) + destination (red dot) markers
+ * Auto-fit към bounds-а при mount/change.
+ */
+function PlannedRouteOverlay({ route }: { route: RouteOption }) {
+  const map = useMap()
+
+  const segments = useMemo(() => {
+    const out: { coords: [number, number][]; color: string; dashed: boolean; line?: string }[] = []
+    let originCoord: [number, number] | null = null
+    let destCoord: [number, number] | null = null
+    for (const leg of route.legs) {
+      if (leg.type === 'walk') {
+        const from = leg.fromCoord ?? null
+        const to = leg.toCoord ?? null
+        if (leg.kind === 'access' && from) originCoord = from
+        if (leg.kind === 'egress' && to) destCoord = to
+        // Walk leg between two known points
+        const a = from
+        const b = to
+        if (a && b) {
+          out.push({ coords: [a, b], color: '#9ca3af', dashed: true })
+        }
+      } else {
+        const coords: [number, number][] = leg.stops.map((s) => [s.lat, s.lng])
+        if (coords.length >= 2) {
+          out.push({ coords, color: getLineColor(leg.line), dashed: false, line: leg.line })
+        }
+      }
+    }
+    return { out, originCoord, destCoord }
+  }, [route])
+
+  useEffect(() => {
+    const bounds = L.latLngBounds([])
+    for (const seg of segments.out) for (const c of seg.coords) bounds.extend(c)
+    if (segments.originCoord) bounds.extend(segments.originCoord)
+    if (segments.destCoord) bounds.extend(segments.destCoord)
+    if (bounds.isValid()) {
+      map.flyToBounds(bounds, { padding: [60, 60], duration: 0.6, maxZoom: 16 })
+    }
+  }, [segments, map])
+
+  return (
+    <>
+      {segments.out.map((seg, i) => (
+        <Polyline
+          key={i}
+          positions={seg.coords}
+          pathOptions={{
+            color: seg.color,
+            weight: seg.dashed ? 4 : 6,
+            opacity: seg.dashed ? 0.7 : 0.9,
+            dashArray: seg.dashed ? '4, 8' : undefined,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+          interactive={false}
+        />
+      ))}
+      {segments.originCoord && (
+        <CircleMarker
+          center={segments.originCoord}
+          radius={9}
+          pathOptions={{ fillColor: '#10b981', fillOpacity: 1, color: '#fff', weight: 3 }}
+          interactive={false}
+        />
+      )}
+      {segments.destCoord && (
+        <CircleMarker
+          center={segments.destCoord}
+          radius={9}
+          pathOptions={{ fillColor: '#ef4444', fillOpacity: 1, color: '#fff', weight: 3 }}
+          interactive={false}
+        />
+      )}
+    </>
+  )
+}
+
 export function Map({
   stops,
   filterLines,
@@ -146,6 +230,7 @@ export function Map({
   favoriteSet,
   liveVehicles,
   routeGeometries,
+  plannedRoute,
   onSelectStop,
   onSelectVehicle,
   onFocusHandled,
@@ -162,6 +247,8 @@ export function Map({
   liveVehicles: LiveVehicle[]
   /** За всяка избрана линия - polyline coords per direction. */
   routeGeometries: { line: string; routes: { coords: [number, number][] }[] }[]
+  /** Текущо избран маршрут от trip planner-а — render-ва се отгоре. */
+  plannedRoute: RouteOption | null
   onSelectStop: (stop: Stop) => void
   onSelectVehicle: (vehicle: LiveVehicle) => void
   onFocusHandled: () => void
@@ -254,6 +341,7 @@ export function Map({
       {liveVehicles.map((v) => (
         <BusMarker key={v.id} vehicle={v} onSelect={onSelectVehicle} />
       ))}
+      {plannedRoute && <PlannedRouteOverlay route={plannedRoute} />}
     </MapContainer>
   )
 }
