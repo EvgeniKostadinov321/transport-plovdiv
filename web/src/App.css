@@ -501,11 +501,18 @@ body {
   font-size: 13px;
 }
 
+/* Bar: toggle button + action бутони на desktop */
+.line-selector__bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .line-selector__toggle {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
   padding: 10px 14px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
@@ -521,6 +528,40 @@ body {
 }
 
 .line-selector__toggle:active {
+  background: var(--bg-hover);
+}
+
+/* Action бутони - вградени в bar-а на desktop */
+.line-selector__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.line-selector__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  box-shadow: var(--shadow-card);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.line-selector__action:hover {
+  background: var(--bg-active);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.line-selector__action:active {
   background: var(--bg-hover);
 }
 
@@ -637,13 +678,14 @@ body {
   color: var(--text-on-accent);
 }
 
-/* Desktop: line selector в ДЯСНО + по-малък */
+/* Desktop: line selector в ДЯСНО + малко по-широк за action бутоните */
 @media (min-width: 601px) and (hover: hover) {
   .line-selector {
     top: 16px;
     left: auto;
     right: 16px;
-    width: 360px;
+    width: 420px;
+    max-width: 420px;
   }
 }
 
