@@ -4,6 +4,7 @@ import './App.css'
 import { BottomSheet } from './components/BottomSheet'
 import { EmptyState } from './components/EmptyState'
 import { GeoIntroModal } from './components/GeoIntroModal'
+import { LocationButton } from './components/LocationButton'
 import { Map } from './components/Map'
 import { MenuButton } from './components/MenuButton'
 import { MenuDrawer, type TabId } from './components/MenuDrawer'
@@ -39,13 +40,30 @@ function App() {
   const geo = useGeolocation()
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
+  /** Token се сменя при click на location button - заставя Map да re-center. */
+  const [userRecenterToken, setUserRecenterToken] = useState(0)
 
   /**
-   * Wraps geo.toggle с custom intro модал първия път.
-   *
-   * - Off → On (първи път): показваме custom модал. След CTA → geo.toggle().
-   * - Off → On (не първи път): директно geo.toggle().
-   * - On → Off: директно geo.toggle().
+   * Click on location button:
+   *   - Already tracking → re-center map to position
+   *   - Idle → show intro modal (if first time) else start
+   *   - Denied → show modal again (explain how to enable)
+   */
+  const handleLocationClick = () => {
+    if (geo.active) {
+      // Recenter
+      setUserRecenterToken((t) => t + 1)
+      return
+    }
+    if (geo.status === 'denied' || geo.status === 'error' || !hasShownGeoIntro()) {
+      setShowGeoIntro(true)
+    } else {
+      geo.toggle()
+    }
+  }
+
+  /**
+   * Settings tab toggle - същата логика като location button.
    */
   const handleToggleGeo = () => {
     if (geo.active) {
@@ -62,7 +80,7 @@ function App() {
   const handleGeoIntroAllow = () => {
     markGeoIntroShown()
     setShowGeoIntro(false)
-    geo.toggle()
+    if (!geo.active) geo.toggle()
   }
 
   const handleGeoIntroDismiss = () => {
@@ -113,18 +131,26 @@ function App() {
         isTouch={isTouch}
         focusStop={focusStop}
         userPosition={geo.position}
+        userRecenterToken={userRecenterToken}
         favoriteSet={favoriteSet}
         onSelectStop={setSelectedStop}
         onFocusHandled={() => setFocusStop(null)}
         onToggleFavorite={toggleFavorite}
       />
-      <MenuButton
-        selectedLines={selectedLines}
-        hasFilter={!noFilter}
-        favoritesCount={favorites.length}
-        geoActive={geo.active}
-        onClick={() => openMenu()}
-      />
+      <div className="top-controls">
+        <LocationButton
+          status={geo.status}
+          active={geo.active}
+          onClick={handleLocationClick}
+        />
+        <MenuButton
+          selectedLines={selectedLines}
+          hasFilter={!noFilter}
+          favoritesCount={favorites.length}
+          geoActive={geo.active}
+          onClick={() => openMenu()}
+        />
+      </div>
       <MenuDrawer
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

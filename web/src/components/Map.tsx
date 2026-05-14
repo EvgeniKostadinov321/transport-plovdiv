@@ -34,18 +34,31 @@ function MapFocusController({
 }
 
 /**
- * Първо location fix → center map. След това не пипаме (потребителят може да пан-не).
+ * Първо location fix → center map. След това не пипаме.
+ * recenterToken се сменя когато user натиска location button → forced flyTo.
  */
-function UserLocationCentering({ position }: { position: GeoPosition | null }) {
+function UserLocationCentering({
+  position,
+  recenterToken,
+}: {
+  position: GeoPosition | null
+  recenterToken: number
+}) {
   const map = useMap()
   const centeredOnceRef = useRef(false)
+  const lastTokenRef = useRef(recenterToken)
+
   useEffect(() => {
-    if (!position || centeredOnceRef.current) return
+    if (!position) return
+    const shouldRecenter =
+      !centeredOnceRef.current || recenterToken !== lastTokenRef.current
+    if (!shouldRecenter) return
     map.flyTo([position.lat, position.lng], Math.max(map.getZoom(), 15), {
       duration: 0.6,
     })
     centeredOnceRef.current = true
-  }, [position, map])
+    lastTokenRef.current = recenterToken
+  }, [position, map, recenterToken])
   return null
 }
 
@@ -123,6 +136,7 @@ export function Map({
   isTouch,
   focusStop,
   userPosition,
+  userRecenterToken,
   favoriteSet,
   onSelectStop,
   onFocusHandled,
@@ -134,6 +148,7 @@ export function Map({
   isTouch: boolean
   focusStop: Stop | null
   userPosition: GeoPosition | null
+  userRecenterToken: number
   favoriteSet: Set<number>
   onSelectStop: (stop: Stop) => void
   onFocusHandled: () => void
@@ -193,7 +208,10 @@ export function Map({
         />
       )}
       {userPosition && <UserLocationMarker position={userPosition} />}
-      <UserLocationCentering position={userPosition} />
+      <UserLocationCentering
+        position={userPosition}
+        recenterToken={userRecenterToken}
+      />
     </MapContainer>
   )
 }
