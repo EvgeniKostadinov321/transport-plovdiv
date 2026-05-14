@@ -1295,6 +1295,55 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   padding: 32px 24px 24px;
   text-align: center;
   animation: geo-intro-in 0.22s ease-out;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Mobile - full screen */
+@media (max-width: 600px), (hover: none) and (pointer: coarse) {
+  .geo-intro {
+    top: 0;
+    left: 0;
+    transform: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    padding: calc(env(safe-area-inset-top, 0px) + 48px) 24px
+      calc(env(safe-area-inset-bottom, 0px) + 24px);
+    justify-content: center;
+    animation: geo-intro-in-mobile 0.22s ease-out;
+  }
+
+  .geo-intro__close {
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+  }
+
+  .geo-intro__illustration {
+    margin-bottom: 24px;
+  }
+
+  .geo-intro__title {
+    font-size: 24px;
+  }
+
+  .geo-intro__desc {
+    font-size: 15px;
+  }
+
+  .geo-intro__benefits li {
+    padding: 14px 14px;
+    font-size: 15px;
+  }
+
+  .geo-intro__cta {
+    padding: 16px 20px;
+    font-size: 16px;
+    margin-top: auto;
+  }
 }
 
 @keyframes geo-intro-in {
@@ -1305,6 +1354,17 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes geo-intro-in-mobile {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
