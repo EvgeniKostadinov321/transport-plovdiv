@@ -1,4 +1,5 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import type { CircleMarker as LeafletCircleMarker } from 'leaflet'
 import { CircleMarker, Popup } from 'react-leaflet'
 import { fetchETA } from '../api'
 import { getStopColor } from '../colors'
@@ -9,20 +10,34 @@ export function StopMarker({
   stop,
   isTouch,
   filterLines,
+  autoOpenPopup,
   onSelect,
 }: {
   stop: Stop
   isTouch: boolean
   filterLines: Set<string>
+  /** Ако е true и не е touch - auto-open popup-а при mount/change. */
+  autoOpenPopup?: boolean
   onSelect: (stop: Stop) => void
 }) {
   const prefetchTimer = useRef<number | null>(null)
+  const markerRef = useRef<LeafletCircleMarker | null>(null)
   const color = getStopColor(stop.lines, filterLines)
+
+  useEffect(() => {
+    if (autoOpenPopup && !isTouch) {
+      const t = setTimeout(() => {
+        markerRef.current?.openPopup()
+      }, 700)
+      return () => clearTimeout(t)
+    }
+  }, [autoOpenPopup, isTouch, stop.number])
 
   // На desktop: hover prefetch + popup. На mobile: tap → bottom sheet (no popup)
   if (isTouch) {
     return (
       <CircleMarker
+        ref={markerRef}
         center={[stop.lat, stop.lng]}
         radius={9}
         pathOptions={{
@@ -43,6 +58,7 @@ export function StopMarker({
 
   return (
     <CircleMarker
+      ref={markerRef}
       center={[stop.lat, stop.lng]}
       radius={filterLines.size > 0 ? 6 : 5}
       pathOptions={{
