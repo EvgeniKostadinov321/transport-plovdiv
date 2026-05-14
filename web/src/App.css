@@ -1149,6 +1149,51 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
 
 .empty-state__btn:hover { background: var(--accent-hover); }
 
+/* === User location marker (Google Maps style) === */
+
+.user-location-marker {
+  position: relative;
+  pointer-events: none;
+}
+
+.user-location-marker__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: #4285F4;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.user-location-marker__pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: rgba(66, 133, 244, 0.4);
+  animation: user-location-pulse 2s ease-out infinite;
+  z-index: 1;
+}
+
+@keyframes user-location-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
 /* === Geo intro modal === */
 
 .geo-intro-backdrop {

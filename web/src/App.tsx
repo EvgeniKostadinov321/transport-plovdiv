@@ -37,7 +37,8 @@ function App() {
     removeFavorite,
   } = useFavorites()
   const geo = useGeolocation()
-  const [showGeoIntro, setShowGeoIntro] = useState(false)
+  // Показваме модала автоматично при първо влизане
+  const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
 
   /**
    * Wraps geo.toggle с custom intro модал първия път.
