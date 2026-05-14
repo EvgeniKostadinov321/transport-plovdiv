@@ -8,8 +8,6 @@ export const DEFAULT_ZOOM = 13
 
 export const CLIENT_CACHE_TTL_MS = 25_000
 export const REFRESH_INTERVAL_MS = 30_000
-/** Polling за bus positions - по-бавно от refresh защото е burst (60+ заявки). */
-export const BUS_POLLING_INTERVAL_MS = 45_000
 
 export function tileUrlForTheme(theme: Theme): string {
   const style = theme === 'dark' ? 'streets-v2-dark' : 'streets-v2'

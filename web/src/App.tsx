@@ -1,18 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
-import { BottomSheet } from './components/BottomSheet'
 import { EmptyState } from './components/EmptyState'
-import { GeoIntroModal } from './components/GeoIntroModal'
+import { LiveStatusBanner } from './components/LiveStatusBanner'
 import { LocationButton } from './components/LocationButton'
 import { Map } from './components/Map'
 import { MenuButton } from './components/MenuButton'
-import { MenuDrawer, type TabId } from './components/MenuDrawer'
+import type { TabId } from './components/MenuDrawer'
+
+// Lazy: показват се само след user interaction → не са в initial bundle
+const MenuDrawer = lazy(() =>
+  import('./components/MenuDrawer').then((m) => ({ default: m.MenuDrawer }))
+)
+const BottomSheet = lazy(() =>
+  import('./components/BottomSheet').then((m) => ({ default: m.BottomSheet }))
+)
+const BusTripSheet = lazy(() =>
+  import('./components/BusTripSheet').then((m) => ({ default: m.BusTripSheet }))
+)
+const GeoIntroModal = lazy(() =>
+  import('./components/GeoIntroModal').then((m) => ({ default: m.GeoIntroModal }))
+)
 import { useFavorites } from './hooks/useFavorites'
+import { useLineTrips } from './hooks/useLineTrips'
 import { useLiveVehicles } from './hooks/useLiveVehicles'
 import { useGeolocation } from './hooks/useGeolocation'
 import { useIsTouch } from './hooks/useIsTouch'
-import { useRouteGeometry } from './hooks/useRouteGeometry'
 import { useStopsAndLines } from './hooks/useStopsAndLines'
 import { useTheme } from './hooks/useTheme'
 import {
@@ -21,13 +34,16 @@ import {
   markGeoIntroShown,
   saveSelectedLines,
 } from './storage'
-import type { Stop } from './types'
+import type { LiveVehicle, Stop } from './types'
 
 function App() {
   const { stops, allLines } = useStopsAndLines()
   const [selectedLines, setSelectedLines] = useState<string[]>(loadSelectedLines)
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null)
+  const [selectedVehicle, setSelectedVehicle] = useState<LiveVehicle | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  /** Веднъж отворено меню → остава mounted (с open=false), за да запази state. */
+  const [menuEverOpened, setMenuEverOpened] = useState(false)
   const [menuInitialTab, setMenuInitialTab] = useState<TabId | undefined>(undefined)
   /** Спирка която Map-а ще focus-не (flyTo + open popup). */
   const [focusStop, setFocusStop] = useState<Stop | null>(null)
@@ -40,8 +56,8 @@ function App() {
     removeFavorite,
   } = useFavorites()
   const geo = useGeolocation()
-  const liveVehicles = useLiveVehicles(selectedLines)
-  const routeGeometryData = useRouteGeometry(selectedLines.length > 0)
+  const { vehicles: liveVehicles, status: liveStatus } = useLiveVehicles(selectedLines)
+  const liveTrips = useLineTrips(selectedLines)
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
   /** Token се сменя при click на location button - заставя Map да re-center. */
@@ -111,23 +127,23 @@ function App() {
     [stops, noFilter, selectedLinesSet]
   )
 
-  const showEmptyState =
+  const showFilteredEmptyState =
     !noFilter && stops.length > 0 && visibleStops.length === 0
 
-  /** За всяка избрана линия - вземаме geometry-та й (или празно ако още не е заредено). */
+  /** За всяка избрана линия — polyline-ите от livetransport (когато са fetched). */
   const routeGeometries = useMemo(() => {
-    if (!routeGeometryData) return []
     return selectedLines
       .map((line) => ({
         line,
-        routes: routeGeometryData.lines[line] ?? [],
+        routes: (liveTrips.get(line) ?? []).map((t) => ({ coords: t.coords })),
       }))
       .filter((g) => g.routes.length > 0)
-  }, [selectedLines, routeGeometryData])
+  }, [selectedLines, liveTrips])
 
   const openMenu = (tab?: TabId) => {
     setMenuInitialTab(tab)
     setMenuOpen(true)
+    setMenuEverOpened(true)
   }
 
   const handleSelectFromSearch = (stop: Stop) => {
@@ -150,10 +166,18 @@ function App() {
         favoriteSet={favoriteSet}
         liveVehicles={liveVehicles}
         routeGeometries={routeGeometries}
-        onSelectStop={setSelectedStop}
+        onSelectStop={(s) => {
+          setSelectedVehicle(null)
+          setSelectedStop(s)
+        }}
+        onSelectVehicle={(v) => {
+          setSelectedStop(null)
+          setSelectedVehicle(v)
+        }}
         onFocusHandled={() => setFocusStop(null)}
         onToggleFavorite={toggleFavorite}
       />
+      <LiveStatusBanner stale={liveStatus === 'stale'} />
       <div className="top-controls">
         <LocationButton
           status={geo.status}
@@ -168,43 +192,56 @@ function App() {
           onClick={() => openMenu()}
         />
       </div>
-      <MenuDrawer
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        initialTab={menuInitialTab}
-        allLines={allLines}
-        selectedLines={selectedLines}
-        onChangeLines={setSelectedLines}
-        visibleStopsCount={visibleStops.length}
-        totalStopsCount={stops.length}
-        stops={stops}
-        onSelectStop={handleSelectFromSearch}
-        favorites={favorites}
-        onRemoveFavorite={removeFavorite}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        geoStatus={geo.status}
-        geoError={geo.error}
-        geoActive={geo.active}
-        onToggleGeo={handleToggleGeo}
-      />
-      {showEmptyState && (
+      <Suspense fallback={null}>
+        {menuEverOpened && (
+          <MenuDrawer
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            initialTab={menuInitialTab}
+            allLines={allLines}
+            selectedLines={selectedLines}
+            onChangeLines={setSelectedLines}
+            visibleStopsCount={visibleStops.length}
+            totalStopsCount={stops.length}
+            stops={stops}
+            onSelectStop={handleSelectFromSearch}
+            favorites={favorites}
+            onRemoveFavorite={removeFavorite}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            geoStatus={geo.status}
+            geoError={geo.error}
+            geoActive={geo.active}
+            onToggleGeo={handleToggleGeo}
+          />
+        )}
+        {showGeoIntro && (
+          <GeoIntroModal
+            onAllow={handleGeoIntroAllow}
+            onDismiss={handleGeoIntroDismiss}
+          />
+        )}
+        {isTouch && selectedStop && (
+          <BottomSheet
+            stop={selectedStop}
+            filterLines={selectedLinesSet}
+            isFavorite={isFavorite(selectedStop.number)}
+            onToggleFavorite={toggleFavorite}
+            onClose={() => setSelectedStop(null)}
+          />
+        )}
+        {selectedVehicle && (
+          <BusTripSheet
+            vehicle={
+              liveVehicles.find((v) => v.id === selectedVehicle.id) ??
+              selectedVehicle
+            }
+            onClose={() => setSelectedVehicle(null)}
+          />
+        )}
+      </Suspense>
+      {showFilteredEmptyState && (
         <EmptyState onClearFilter={() => setSelectedLines([])} />
-      )}
-      {showGeoIntro && (
-        <GeoIntroModal
-          onAllow={handleGeoIntroAllow}
-          onDismiss={handleGeoIntroDismiss}
-        />
-      )}
-      {isTouch && selectedStop && (
-        <BottomSheet
-          stop={selectedStop}
-          filterLines={selectedLinesSet}
-          isFavorite={isFavorite(selectedStop.number)}
-          onToggleFavorite={toggleFavorite}
-          onClose={() => setSelectedStop(null)}
-        />
       )}
     </>
   )

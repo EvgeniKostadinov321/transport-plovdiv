@@ -41,8 +41,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
-        // Не cache-ваме никакви API заявки засега - те трябва винаги да са fresh
-        // или да fail-ват с свежа грешка, не stale 504
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
@@ -55,6 +53,29 @@ export default defineConfig({
                 maxEntries: 500,
                 maxAgeSeconds: 60 * 60 * 24 * 7,
               },
+            },
+          },
+          {
+            // Static reference data - stops & lines. Stale-while-revalidate
+            // дава instant load + background refresh. Offline → cached.
+            urlPattern: ({ url }) =>
+              url.pathname === '/api/stops' || url.pathname === '/api/lines',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'transport-static',
+              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Live trip polylines per line. Cache докато cookie-fresh,
+            // на background refresh-ва.
+            urlPattern: ({ url }) => /^\/api\/line\/[^/]+\/trips$/.test(url.pathname),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'transport-trips',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 6 },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],

@@ -6,17 +6,13 @@
  * Vercel functions го извикват чрез този tunnel URL.
  */
 
-import { readFile } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getStopETA, type ETAEntry } from './lib/zk-client.ts'
 import { getStaticData } from './lib/static-data.ts'
 import { liveTransport } from './lib/livetransport-client.ts'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { getTripsForLine, getVehicleTripStatus } from './lib/trips-client.ts'
 
 const app = new Hono()
 
@@ -33,51 +29,6 @@ app.get('/api/lines', async (c) => {
     return c.json(
       { error: 'static load failed', details: err instanceof Error ? err.message : String(err) },
       502
-    )
-  }
-})
-
-/** Route ordering - сервираме seed JSON директно. Cache forever. */
-let routeStopsCache: unknown = null
-async function getRouteStops(): Promise<unknown> {
-  if (routeStopsCache) return routeStopsCache
-  const path = join(__dirname, 'data', 'route-stops.json')
-  const content = await readFile(path, 'utf8')
-  routeStopsCache = JSON.parse(content)
-  return routeStopsCache
-}
-
-app.get('/api/route-stops', async (c) => {
-  try {
-    const data = await getRouteStops()
-    return c.json(data)
-  } catch (err) {
-    return c.json(
-      { error: 'route-stops load failed', details: err instanceof Error ? err.message : String(err) },
-      500
-    )
-  }
-})
-
-let routeGeometryCache: unknown = null
-async function getRouteGeometry(): Promise<unknown> {
-  if (routeGeometryCache) return routeGeometryCache
-  const path = join(__dirname, 'data', 'route-geometry.json')
-  const content = await readFile(path, 'utf8')
-  routeGeometryCache = JSON.parse(content)
-  return routeGeometryCache
-}
-
-app.get('/api/route-geometry', async (c) => {
-  try {
-    const data = await getRouteGeometry()
-    // Big file - cache 1 day at edge
-    c.header('Cache-Control', 'public, max-age=86400')
-    return c.json(data)
-  } catch (err) {
-    return c.json(
-      { error: 'route-geometry load failed', details: err instanceof Error ? err.message : String(err) },
-      500
     )
   }
 })
@@ -143,6 +94,63 @@ app.get('/api/eta/:stop', async (c) => {
   } catch (err) {
     return c.json(
       { error: 'upstream failed', details: err instanceof Error ? err.message : String(err) },
+      502
+    )
+  }
+})
+
+app.get('/api/line/:line/trips', async (c) => {
+  const line = c.req.param('line')
+  if (!/^[0-9A-Za-z]{1,5}$/.test(line)) {
+    return c.json({ error: 'invalid line' }, 400)
+  }
+  try {
+    const trips = await getTripsForLine(line)
+    // Кеш-вaмe в edge защото shape-ите рядко се променят. PER_LINE_TTL_MS = 5 min.
+    c.header('Cache-Control', 'public, max-age=120')
+    return c.json({ line, trips })
+  } catch (err) {
+    return c.json(
+      { error: 'trips fetch failed', details: err instanceof Error ? err.message : String(err) },
+      502
+    )
+  }
+})
+
+/**
+ * Trip status за конкретен автобус.
+ * `:id` е URL-encoded (`3/PB0533CE` → `3%2FPB0533CE`).
+ */
+app.get('/api/vehicle/:id/trip', async (c) => {
+  const vehicleId = decodeURIComponent(c.req.param('id'))
+  if (!/^[0-9]{1,3}\/[A-Za-z0-9]{1,12}$/.test(vehicleId)) {
+    return c.json({ error: 'invalid vehicle id' }, 400)
+  }
+  try {
+    const status = await getVehicleTripStatus(vehicleId)
+    if (!status) return c.json({ error: 'no active trip' }, 404)
+    const stops = status.trip.stopIds.map((id, i) => {
+      const meta = liveTransport.getStopMeta(id)
+      return {
+        index: i,
+        stopId: id,
+        code: meta?.code ?? null,
+        name: meta?.name ?? null,
+        scheduled: status.trip.stopScheduled[i] ?? null,
+      }
+    })
+    return c.json({
+      vehicleId: status.vehicleId,
+      tripId: status.trip.id,
+      line: status.trip.line,
+      destination: status.trip.destination,
+      nextStopIndex: status.nextStop,
+      delayMs: status.delayMs,
+      stops,
+    })
+  } catch (err) {
+    return c.json(
+      { error: 'trip fetch failed', details: err instanceof Error ? err.message : String(err) },
       502
     )
   }

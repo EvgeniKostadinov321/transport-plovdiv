@@ -36,44 +36,35 @@ export interface GeoPosition {
   timestamp: number
 }
 
-/** Single направление (посока) на линия. */
-export interface RouteDirection {
-  label: string
-  stops: { number: number; name: string }[]
+/** Per-stop info вътре в VehicleTrip. */
+export interface VehicleTripStop {
+  index: number
+  stopId: string
+  /** Public stop code (напр. "1001"). null ако не е резолвен. */
+  code: string | null
+  name: string | null
+  /** Scheduled timestamp (ms). null ако липсва. */
+  scheduled: number | null
 }
 
-/** Една линия с всички нейни посоки. */
-export interface LineRoutes {
-  label: string
-  routes: RouteDirection[]
+/** Pop-up data за конкретен автобус: trip status + всички спирки. */
+export interface VehicleTrip {
+  vehicleId: string
+  tripId: string
+  line: string
+  destination: string | null
+  nextStopIndex: number
+  delayMs: number
+  stops: VehicleTripStop[]
 }
 
-/** Цялото съдържание на /api/route-stops. */
-export interface RouteStopsData {
-  extractedAt: string
-  lineCount: number
-  totalRoutes: number
-  totalStopEntries: number
-  failures: string[]
-  lines: Record<string, LineRoutes>
-}
-
-/** Една посока на линия с реална geometry от OSM. */
-export interface RouteGeometry {
-  osmId: number
-  name: string
-  from: string | null
-  to: string | null
-  /** Подредени [lat, lng] tuples по реалния път. */
+/** Live trip от livetransport — decoded polyline + destination. */
+export interface LiveTrip {
+  id: string
+  line: string
+  destination: string | null
   coords: [number, number][]
-  nodeCount: number
-}
-
-export interface RouteGeometryData {
-  extractedAt: string
-  source: string
-  lineCount: number
-  lines: Record<string, RouteGeometry[]>
+  stopIds: string[]
 }
 
 /** Реален GPS vehicle от backend live feed. */
@@ -89,20 +80,3 @@ export interface LiveVehicle {
   lastUpdated: number
 }
 
-/** Резултат от position interpolation - bus на картата. */
-export interface BusPosition {
-  line: string
-  direction: string
-  lat: number
-  lng: number
-  /** Минути до следваща спирка */
-  minutesToNext: number
-  /** Към коя спирка пътува */
-  toStopNumber: number
-  toStopName: string
-  /** Откъде идва */
-  fromStopNumber: number
-  fromStopName: string
-  /** Прогрес от 0 (току що мина from) до 1 (стига to) */
-  progress: number
-}

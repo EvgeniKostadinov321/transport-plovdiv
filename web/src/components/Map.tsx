@@ -5,7 +5,6 @@ import { DEFAULT_ZOOM, PLOVDIV_CENTER, tileUrlForTheme } from '../config'
 import type {
   GeoPosition,
   LiveVehicle,
-  RouteGeometry,
   Stop,
   Theme,
 } from '../types'
@@ -148,6 +147,7 @@ export function Map({
   liveVehicles,
   routeGeometries,
   onSelectStop,
+  onSelectVehicle,
   onFocusHandled,
   onToggleFavorite,
 }: {
@@ -160,9 +160,10 @@ export function Map({
   userRecenterToken: number
   favoriteSet: Set<number>
   liveVehicles: LiveVehicle[]
-  /** За всяка избрана линия - всичките й directions с polyline coords. */
-  routeGeometries: { line: string; routes: RouteGeometry[] }[]
+  /** За всяка избрана линия - polyline coords per direction. */
+  routeGeometries: { line: string; routes: { coords: [number, number][] }[] }[]
   onSelectStop: (stop: Stop) => void
+  onSelectVehicle: (vehicle: LiveVehicle) => void
   onFocusHandled: () => void
   onToggleFavorite: (stopNumber: number) => void
 }) {
@@ -195,7 +196,7 @@ export function Map({
           const dashArray = ri === 1 ? '10, 8' : undefined
           return (
             <Polyline
-              key={`${line}-${route.osmId}-${ri}`}
+              key={`${line}-${ri}`}
               positions={route.coords}
               pathOptions={{
                 color,
@@ -251,7 +252,7 @@ export function Map({
         recenterToken={userRecenterToken}
       />
       {liveVehicles.map((v) => (
-        <BusMarker key={v.id} vehicle={v} />
+        <BusMarker key={v.id} vehicle={v} onSelect={onSelectVehicle} />
       ))}
     </MapContainer>
   )

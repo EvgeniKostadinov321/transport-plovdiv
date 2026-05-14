@@ -10,10 +10,12 @@
 
 ### Защо не Cloud functions (Vercel/Railway/CF Workers)
 
-Общинският сайт `transport.plovdiv.bg` блокира datacenter IP диапазони (AWS, GCP, Cloudflare).
-Доказано тествано — всичките дават TCP timeout.
-
-Единствено BG residential / BG hosting ASN-и (Delta, SuperHosting, ICN и т.н.) минават.
+1. **transport.plovdiv.bg** блокира datacenter IP диапазони (AWS, GCP, Cloudflare).
+   Доказано тествано — всичките дават TCP timeout. Само BG ASN-и минават.
+2. **SSE stream** (`/api/vehicles/stream`) се нуждае от long-lived HTTP connection,
+   което сериозно се ограничава от serverless function timeouts (10-60s обикновено).
+3. **WebSocket към livetransport.eu** трябва да е един shared connection — serverless
+   функциите не са stateful, ще се отваря нов WS на всеки cold start.
 
 ### Production credentials
 
@@ -113,6 +115,14 @@ sudo systemctl start transport-api
 server {
     server_name 185-52-207-151.nip.io;
 
+    # SSE stream (/api/vehicles/stream) изисква disabled buffering + дълъг timeout.
+    # Конфигурираме на сървъра целия (не само за този location), за да покрием и
+    # бъдещи long-lived endpoints.
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 1h;
+    proxy_send_timeout 1h;
+
     location / {
         proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
@@ -120,6 +130,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        # Connection: '' пречи на nginx да добавя `Connection: close` за SSE
+        proxy_set_header Connection '';
     }
 
     listen 443 ssl; # managed by Certbot
@@ -205,15 +217,45 @@ npm run build
 
 Ако работи локално но не на Vercel → виж Vercel build logs за specific грешка.
 
+### SSE / EventSource не получава events на production
+
+Симптом: на localhost работи, на live URL-а статусът е "stale" веднага.
+
+Причина: nginx буферира response-а. SSE е chunked stream — браузърът чака първия chunk.
+
+Fix: уверете се че в nginx config-а има `proxy_buffering off` (виж Nginx config по-горе).
+
+```bash
+# Тест директно срещу backend (bypass nginx)
+curl -sN --max-time 8 http://localhost:3001/api/vehicles/stream | head -c 200
+
+# Тест през nginx
+curl -sN --max-time 8 https://185-52-207-151.nip.io/api/vehicles/stream | head -c 200
+```
+
+И двете трябва да върнат `event: snapshot\ndata: [...]` веднага. Ако nginx-овият виси → buffering е enabled.
+
+### Livetransport WS не се connect-ва
+
+```bash
+ssh -F NUL ubuntu@185.52.207.151
+sudo journalctl -u transport-api -f
+# Очаквай: [livetransport] WS open
+# Ако виждаш `WS error` или `WS close code=...` → outbound firewall ли блокира 443?
+sudo ufw status
+```
+
+VPS-ът трябва да позволи outbound TCP 443 към `api.livetransport.eu`. По default Ubuntu е OK.
+
 ## Backup стратегия
 
-- Code: GitHub (auto)
-- Server config: тук в DEPLOY.md
-- SSL certs: Let's Encrypt auto-renews
-- Server data: няма state — всичко идва от transport.plovdiv.bg
+- **Code:** GitHub (auto)
+- **Server config:** тук в DEPLOY.md
+- **SSL certs:** Let's Encrypt auto-renews
+- **Server data:** няма state — всичко идва от transport.plovdiv.bg + livetransport.eu
 
 При замяна на VPS-а:
 1. Купи нов BG VPS (Delta или alt)
 2. Repeat "Initial setup" по-горе
 3. nip.io URL се променя на новия IP
-4. Обнови `VITE_API_URL` в Vercel
+4. Обнови `VITE_API_URL` в Vercel → Redeploy

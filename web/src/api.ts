@@ -1,9 +1,9 @@
 import { API_URL, CLIENT_CACHE_TTL_MS } from './config'
 import type {
   ETAResponse,
-  RouteGeometryData,
-  RouteStopsData,
+  LiveTrip,
   Stop,
+  VehicleTrip,
 } from './types'
 
 // Споделен кеш + in-flight de-dupe между всички StopPopup и hover prefetch
@@ -67,16 +67,19 @@ export async function fetchLines(): Promise<string[]> {
   return data.lines
 }
 
-export async function fetchRouteStops(): Promise<RouteStopsData> {
-  const res = await fetch(`${API_URL}/api/route-stops`)
+export async function fetchVehicleTrip(vehicleId: string): Promise<VehicleTrip> {
+  const res = await fetch(
+    `${API_URL}/api/vehicle/${encodeURIComponent(vehicleId)}/trip`
+  )
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return (await res.json()) as RouteStopsData
+  return (await res.json()) as VehicleTrip
 }
 
-export async function fetchRouteGeometry(): Promise<RouteGeometryData> {
-  const res = await fetch(`${API_URL}/api/route-geometry`)
+export async function fetchLineTrips(line: string): Promise<LiveTrip[]> {
+  const res = await fetch(`${API_URL}/api/line/${encodeURIComponent(line)}/trips`)
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return (await res.json()) as RouteGeometryData
+  const data = (await res.json()) as { line: string; trips: LiveTrip[] }
+  return data.trips
 }
 
 /** Премахва излишни кавички и whitespace от ZK label-ите. */

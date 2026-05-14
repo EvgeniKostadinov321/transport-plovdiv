@@ -47,11 +47,26 @@ interface LineInfo {
   name: string
 }
 
+interface StopInfo {
+  id: string
+  code: string
+  name: { bg?: string; en?: string }
+  geo?: { coords: [number, number] }
+}
+
+export interface StopMeta {
+  /** Public stop number (напр. "1001"). */
+  code: string
+  name: string
+}
+
 class LiveTransportClient {
   private ws: WebSocket | null = null
   private vehicles = new Map<string, Vehicle>()
   /** lineId (тех. вътрешен) → публично име ("28" → "6"). */
   private lineIdToName = new Map<string, string>()
+  /** stopId (тех. вътрешен) → { code, name } */
+  private stopIdToMeta = new Map<string, StopMeta>()
   private listeners = new Set<Listener>()
   private reconnectDelay = 1000
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -84,6 +99,16 @@ class LiveTransportClient {
     return [...this.vehicles.values()]
   }
 
+  /** Mapping техен lineId → публично име ("28" → "6"). За trips-client.ts. */
+  getLineName(lineId: string): string | null {
+    return this.lineIdToName.get(lineId) ?? null
+  }
+
+  /** Mapping техен stopId → public code + name. За trip popup-а. */
+  getStopMeta(stopId: string): StopMeta | null {
+    return this.stopIdToMeta.get(stopId) ?? null
+  }
+
   getStats() {
     return {
       connected: this.connected,
@@ -98,13 +123,21 @@ class LiveTransportClient {
     try {
       const res = await fetch(BOOTSTRAP_URL)
       if (!res.ok) throw new Error(`bootstrap ${res.status}`)
-      const data = (await res.json()) as { lines?: LineInfo[] }
+      const data = (await res.json()) as { lines?: LineInfo[]; stops?: StopInfo[] }
       for (const line of data.lines ?? []) {
         this.lineIdToName.set(line.id, line.name)
       }
-      console.log(`[livetransport] line mapping loaded: ${this.lineIdToName.size} lines`)
+      for (const stop of data.stops ?? []) {
+        this.stopIdToMeta.set(stop.id, {
+          code: stop.code,
+          name: stop.name?.bg ?? stop.name?.en ?? '',
+        })
+      }
+      console.log(
+        `[livetransport] bootstrap loaded: ${this.lineIdToName.size} lines, ${this.stopIdToMeta.size} stops`
+      )
     } catch (err) {
-      console.error('[livetransport] line mapping load failed:', err)
+      console.error('[livetransport] bootstrap load failed:', err)
     }
   }
 
