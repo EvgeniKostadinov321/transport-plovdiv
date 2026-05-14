@@ -8,6 +8,7 @@ import { LocationButton } from './components/LocationButton'
 import { Map } from './components/Map'
 import { MenuButton } from './components/MenuButton'
 import { MenuDrawer, type TabId } from './components/MenuDrawer'
+import { useBusPositions } from './hooks/useBusPositions'
 import { useFavorites } from './hooks/useFavorites'
 import { useGeolocation } from './hooks/useGeolocation'
 import { useIsTouch } from './hooks/useIsTouch'
@@ -38,6 +39,10 @@ function App() {
     removeFavorite,
   } = useFavorites()
   const geo = useGeolocation()
+  const { positions: busPositions } = useBusPositions(
+    selectedLines,
+    stops
+  )
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
   /** Token се сменя при click на location button - заставя Map да re-center. */
@@ -133,6 +138,7 @@ function App() {
         userPosition={geo.position}
         userRecenterToken={userRecenterToken}
         favoriteSet={favoriteSet}
+        busPositions={busPositions}
         onSelectStop={setSelectedStop}
         onFocusHandled={() => setFocusStop(null)}
         onToggleFavorite={toggleFavorite}

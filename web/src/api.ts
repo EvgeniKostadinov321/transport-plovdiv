@@ -1,5 +1,5 @@
 import { API_URL, CLIENT_CACHE_TTL_MS } from './config'
-import type { ETAResponse, Stop } from './types'
+import type { ETAResponse, RouteStopsData, Stop } from './types'
 
 // Споделен кеш + in-flight de-dupe между всички StopPopup и hover prefetch
 interface CacheEntry {
@@ -60,6 +60,12 @@ export async function fetchLines(): Promise<string[]> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   const data = (await res.json()) as { lines: string[] }
   return data.lines
+}
+
+export async function fetchRouteStops(): Promise<RouteStopsData> {
+  const res = await fetch(`${API_URL}/api/route-stops`)
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return (await res.json()) as RouteStopsData
 }
 
 /** Премахва излишни кавички и whitespace от ZK label-ите. */

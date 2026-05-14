@@ -1215,6 +1215,42 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
 
 .empty-state__btn:hover { background: var(--accent-hover); }
 
+/* === Bus markers (moving buses) === */
+
+.bus-marker {
+  pointer-events: auto;
+  /* Leaflet update-ва position чрез transform - smooth между updates */
+  transition: transform 1.2s ease-in-out;
+}
+
+.bus-marker__shell {
+  width: 56px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px 0 4px;
+  border-radius: 15px;
+  background: var(--bus-color, #1a73e8);
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  font-weight: 700;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bus-marker__shell svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.bus-marker__label {
+  line-height: 1;
+}
+
 /* === User location marker (green person icon) === */
 
 .user-location-marker {

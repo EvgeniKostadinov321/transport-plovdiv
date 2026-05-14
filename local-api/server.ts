@@ -6,11 +6,16 @@
  * Vercel functions го извикват чрез този tunnel URL.
  */
 
+import { readFile } from 'node:fs/promises'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getStopETA, type ETAEntry } from './lib/zk-client.ts'
 import { getStaticData } from './lib/static-data.ts'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const app = new Hono()
 
@@ -27,6 +32,28 @@ app.get('/api/lines', async (c) => {
     return c.json(
       { error: 'static load failed', details: err instanceof Error ? err.message : String(err) },
       502
+    )
+  }
+})
+
+/** Route ordering - сервираме seed JSON директно. Cache forever. */
+let routeStopsCache: unknown = null
+async function getRouteStops(): Promise<unknown> {
+  if (routeStopsCache) return routeStopsCache
+  const path = join(__dirname, 'data', 'route-stops.json')
+  const content = await readFile(path, 'utf8')
+  routeStopsCache = JSON.parse(content)
+  return routeStopsCache
+}
+
+app.get('/api/route-stops', async (c) => {
+  try {
+    const data = await getRouteStops()
+    return c.json(data)
+  } catch (err) {
+    return c.json(
+      { error: 'route-stops load failed', details: err instanceof Error ? err.message : String(err) },
+      500
     )
   }
 })

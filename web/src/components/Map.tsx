@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
 import { MapContainer, TileLayer, useMap, CircleMarker, Popup } from 'react-leaflet'
 import { DEFAULT_ZOOM, PLOVDIV_CENTER, tileUrlForTheme } from '../config'
-import type { GeoPosition, Stop, Theme } from '../types'
+import type { BusPosition, GeoPosition, Stop, Theme } from '../types'
+import { BusMarker } from './BusMarker'
 import { StopMarker } from './StopMarker'
 import { StopPopupContent } from './StopPopupContent'
 import { UserLocationMarker } from './UserLocationMarker'
@@ -138,6 +139,7 @@ export function Map({
   userPosition,
   userRecenterToken,
   favoriteSet,
+  busPositions,
   onSelectStop,
   onFocusHandled,
   onToggleFavorite,
@@ -150,6 +152,7 @@ export function Map({
   userPosition: GeoPosition | null
   userRecenterToken: number
   favoriteSet: Set<number>
+  busPositions: BusPosition[]
   onSelectStop: (stop: Stop) => void
   onFocusHandled: () => void
   onToggleFavorite: (stopNumber: number) => void
@@ -212,6 +215,12 @@ export function Map({
         position={userPosition}
         recenterToken={userRecenterToken}
       />
+      {busPositions.map((bus, i) => (
+        <BusMarker
+          key={`${bus.line}-${bus.direction}-${bus.toStopNumber}-${i}`}
+          bus={bus}
+        />
+      ))}
     </MapContainer>
   )
 }
