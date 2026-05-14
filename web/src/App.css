@@ -1224,31 +1224,58 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
 }
 
 .bus-marker__shell {
-  width: 56px;
+  width: 58px;
   height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 0 6px 0 4px;
-  border-radius: 15px;
-  background: var(--bus-color, #1a73e8);
+  gap: 5px;
+  padding: 0 8px 0 4px;
+  border-radius: 6px;
+  background: #1f2937;
   color: #fff;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  font-weight: 700;
-  font-size: 12px;
+  border: 2px solid var(--bus-color, #fbbf24);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  font-weight: 800;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+  position: relative;
 }
 
-.bus-marker__shell svg {
-  width: 16px;
-  height: 16px;
+/* Малка стрелка отдолу като map pin */
+.bus-marker__shell::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--bus-color, #fbbf24);
+}
+
+.bus-marker__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bus-color, #fbbf24);
+  color: #1f2937;
   flex-shrink: 0;
+}
+
+.bus-marker__icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .bus-marker__label {
   line-height: 1;
+  letter-spacing: 0.3px;
 }
 
 /* === User location marker (green person icon) === */

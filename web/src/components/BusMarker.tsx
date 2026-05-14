@@ -6,34 +6,35 @@ import { cleanText } from '../api'
 import type { BusPosition } from '../types'
 
 /**
- * Bus marker - SVG автобус с цвета на линията.
- * Smooth CSS transition при update на позицията (30s polling interval).
+ * Bus marker - icon на автобус с цвят на линията + dark badge с номера.
+ * Изглежда различно от spirka markers (които са flat circles).
  */
 export function BusMarker({ bus }: { bus: BusPosition }) {
-  const color = getLineColor(bus.line)
-  const lineLabel = bus.line
+  const lineColor = getLineColor(bus.line)
 
   const icon = useMemo(
     () =>
       L.divIcon({
         className: 'bus-marker',
         html: `
-          <div class="bus-marker__shell" style="--bus-color: ${color};">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"/>
-              <path d="M4 14h16"/>
-              <path d="M8 19a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-              <path d="M19 19a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-              <rect x="7" y="7" width="4" height="4" rx="0.5"/>
-              <rect x="13" y="7" width="4" height="4" rx="0.5"/>
-            </svg>
-            <span class="bus-marker__label">${lineLabel}</span>
+          <div class="bus-marker__shell" style="--bus-color: ${lineColor};">
+            <span class="bus-marker__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"/>
+                <path d="M4 14h16"/>
+                <circle cx="7" cy="18" r="1.5"/>
+                <circle cx="17" cy="18" r="1.5"/>
+                <line x1="9" y1="8" x2="9" y2="11"/>
+                <line x1="15" y1="8" x2="15" y2="11"/>
+              </svg>
+            </span>
+            <span class="bus-marker__label">${bus.line}</span>
           </div>
         `,
-        iconSize: [56, 30],
-        iconAnchor: [28, 15],
+        iconSize: [58, 30],
+        iconAnchor: [29, 15],
       }),
-    [color, lineLabel]
+    [lineColor, bus.line]
   )
 
   return (
@@ -41,15 +42,18 @@ export function BusMarker({ bus }: { bus: BusPosition }) {
       position={[bus.lat, bus.lng]}
       icon={icon}
       keyboard={false}
-      zIndexOffset={500}
+      zIndexOffset={750}
     >
-      <Tooltip direction="top" offset={[0, -10]}>
-        <div style={{ fontSize: 12 }}>
+      <Tooltip direction="top" offset={[0, -12]}>
+        <div style={{ fontSize: 12, lineHeight: 1.4 }}>
           <div>
-            <strong>Линия {bus.line}</strong> → {cleanText(bus.direction)}
+            <strong>Линия {bus.line}</strong>
           </div>
-          <div style={{ color: '#666', marginTop: 2 }}>
-            След {bus.minutesToNext} мин на:{' '}
+          <div style={{ color: '#aaa', fontSize: 11 }}>
+            {cleanText(bus.direction)}
+          </div>
+          <div style={{ marginTop: 4 }}>
+            След <strong>{bus.minutesToNext} мин</strong>:{' '}
             <strong>#{bus.toStopNumber}</strong> {cleanText(bus.toStopName)}
           </div>
         </div>
