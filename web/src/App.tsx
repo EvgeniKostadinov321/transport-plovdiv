@@ -31,14 +31,19 @@ interface ETAResponse {
 // В .env.production или Vercel env: VITE_API_URL=https://<tunnel>.trycloudflare.com
 const API_URL = import.meta.env.VITE_API_URL ?? ''
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY ?? ''
-const MAPTILER_STYLE = 'streets-v2' // или 'basic-v2', 'outdoor-v2', 'topo-v2'
 const PLOVDIV_CENTER: [number, number] = [42.1354, 24.7453]
 const CLIENT_CACHE_TTL_MS = 25_000
 const REFRESH_INTERVAL_MS = 30_000
+const THEME_STORAGE_KEY = 'transport-plovdiv.theme'
 
-const tileUrl = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/${MAPTILER_STYLE}/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
-  : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+type Theme = 'light' | 'dark'
+
+function tileUrlForTheme(theme: Theme): string {
+  const style = theme === 'dark' ? 'streets-v2-dark' : 'streets-v2'
+  return MAPTILER_KEY
+    ? `https://api.maptiler.com/maps/${style}/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+}
 
 // Споделен кеш + in-flight de-dupe между всички StopPopup и hover prefetch
 interface CacheEntry {
@@ -174,52 +179,78 @@ function StopPopupContent({
       </div>
       {loading && !data && <div className="eta-popup__msg">Зареждане…</div>}
       {error && <div className="eta-popup__msg eta-popup__msg--err">Грешка: {error}</div>}
-      {data && data.etas.length === 0 && (
-        <div className="eta-popup__msg">Няма пристигащи автобуси.</div>
-      )}
-      {data && data.etas.length > 0 && (
-        <div className="eta-table__scroll">
-          <table className="eta-table">
-            <thead>
-              <tr>
-                <th className="eta-table__col-line">Линия</th>
-                <th className="eta-table__col-min">мин</th>
-                <th className="eta-table__col-time">час</th>
-                <th className="eta-table__col-dest">Посока</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.etas.map((eta, i) => {
-                const highlighted = filterLines.has(eta.line)
-                const lineColor = highlighted ? getLineColor(eta.line) : undefined
-                return (
-                  <tr key={i} className={highlighted ? 'eta-row--highlighted' : ''}>
-                    <td className="eta-table__col-line">
-                      <span
-                        className="line-badge"
-                        style={lineColor ? { background: lineColor } : undefined}
-                      >
-                        {eta.line}
-                      </span>
-                    </td>
-                    <td className="eta-table__col-min">
-                      {eta.minutes === 0 ? (
-                        <strong style={{ color: '#c0392b' }}>сега</strong>
-                      ) : (
-                        <strong>{eta.minutes}</strong>
-                      )}
-                    </td>
-                    <td className="eta-table__col-time">{eta.arrivalTime}</td>
-                    <td className="eta-table__col-dest" title={cleanText(eta.destination)}>
-                      {cleanText(eta.destination)}
-                    </td>
+      {(() => {
+        if (!data) return null
+        const hasFilter = filterLines.size > 0
+        const visibleEtas = hasFilter
+          ? data.etas.filter((eta) => filterLines.has(eta.line))
+          : data.etas
+        const hiddenCount = data.etas.length - visibleEtas.length
+
+        if (data.etas.length === 0) {
+          return <div className="eta-popup__msg">Няма пристигащи автобуси.</div>
+        }
+        if (visibleEtas.length === 0) {
+          return (
+            <div className="eta-popup__msg">
+              Няма пристигащи автобуси от избраните линии.
+              <br />
+              <span style={{ fontSize: 12 }}>
+                ({data.etas.length} други автобуса скрити от филтъра)
+              </span>
+            </div>
+          )
+        }
+        return (
+          <>
+            <div className="eta-table__scroll">
+              <table className="eta-table">
+                <thead>
+                  <tr>
+                    <th className="eta-table__col-line">Линия</th>
+                    <th className="eta-table__col-min">мин</th>
+                    <th className="eta-table__col-time">час</th>
+                    <th className="eta-table__col-dest">Посока</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {visibleEtas.map((eta, i) => {
+                    const lineColor = getLineColor(eta.line)
+                    return (
+                      <tr key={i}>
+                        <td className="eta-table__col-line">
+                          <span
+                            className="line-badge"
+                            style={hasFilter ? { background: lineColor } : undefined}
+                          >
+                            {eta.line}
+                          </span>
+                        </td>
+                        <td className="eta-table__col-min">
+                          {eta.minutes === 0 ? (
+                            <strong style={{ color: '#c0392b' }}>сега</strong>
+                          ) : (
+                            <strong>{eta.minutes}</strong>
+                          )}
+                        </td>
+                        <td className="eta-table__col-time">{eta.arrivalTime}</td>
+                        <td className="eta-table__col-dest" title={cleanText(eta.destination)}>
+                          {cleanText(eta.destination)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {hasFilter && hiddenCount > 0 && (
+              <div className="eta-popup__filter-note">
+                Филтър: {hiddenCount} {hiddenCount === 1 ? 'автобус скрит' : 'автобуса скрити'}
+              </div>
+            )}
+          </>
+        )
+      })()}
       {data && (
         <div className="eta-popup__footer">
           <span>
@@ -395,11 +426,27 @@ function loadSelectedLines(): string[] {
   }
 }
 
+function loadTheme(): Theme {
+  try {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY)
+    if (raw === 'dark' || raw === 'light') return raw
+  } catch {}
+  // Default: следваме system preference
+  if (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  ) {
+    return 'dark'
+  }
+  return 'light'
+}
+
 function App() {
   const [stops, setStops] = useState<Stop[]>([])
   const [allLines, setAllLines] = useState<string[]>([])
   const [selectedLines, setSelectedLines] = useState<string[]>(loadSelectedLines)
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null)
+  const [theme, setTheme] = useState<Theme>(loadTheme)
   const isTouch = useIsTouch()
 
   useEffect(() => {
@@ -416,6 +463,12 @@ function App() {
   useEffect(() => {
     localStorage.setItem(LINES_STORAGE_KEY, JSON.stringify(selectedLines))
   }, [selectedLines])
+
+  // Theme: запазваме + прилагаме class на <html>
+  useEffect(() => {
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+    document.documentElement.dataset.theme = theme
+  }, [theme])
 
   const selectedLinesSet = useMemo(
     () => new Set(selectedLines),
@@ -441,7 +494,7 @@ function App() {
         zoomControl={!isTouch}
         attributionControl={false}
       >
-        <TileLayer url={tileUrl} />
+        <TileLayer url={tileUrlForTheme(theme)} key={theme} />
         {visibleStops.map((stop) => (
           <StopMarker
             key={`${stop.number}-${stop.lat}-${stop.lng}`}
@@ -458,6 +511,12 @@ function App() {
         visibleCount={visibleStops.length}
         totalCount={stops.length}
         onChange={setSelectedLines}
+      />
+      <Toolbar
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+        hasFilter={!noFilter}
+        onClearFilter={() => setSelectedLines([])}
       />
       {showEmptyState && (
         <div className="empty-state">
@@ -483,6 +542,91 @@ function App() {
         />
       )}
     </>
+  )
+}
+
+function Toolbar({
+  theme,
+  onToggleTheme,
+  hasFilter,
+  onClearFilter,
+}: {
+  theme: Theme
+  onToggleTheme: () => void
+  hasFilter: boolean
+  onClearFilter: () => void
+}) {
+  return (
+    <div className="toolbar">
+      {hasFilter && (
+        <button
+          type="button"
+          className="toolbar__btn"
+          onClick={onClearFilter}
+          aria-label="Изчисти филтъра"
+          title="Покажи всички спирки"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+            <line x1="3" y1="3" x2="21" y2="21" />
+          </svg>
+        </button>
+      )}
+      <button
+        type="button"
+        className="toolbar__btn"
+        onClick={onToggleTheme}
+        aria-label={theme === 'dark' ? 'Светъл режим' : 'Тъмен режим'}
+        title={theme === 'dark' ? 'Светъл режим' : 'Тъмен режим'}
+      >
+        {theme === 'dark' ? (
+          // Sun icon
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        ) : (
+          // Moon icon
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        )}
+      </button>
+    </div>
   )
 }
 

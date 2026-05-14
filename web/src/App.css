@@ -1,15 +1,65 @@
+/* === Theme tokens === */
+:root {
+  --bg-elev: #ffffff;
+  --bg-elev-2: #fafafa;
+  --bg-hover: #f5f5f5;
+  --bg-active: #f0f4fb;
+  --border: #d6d6d6;
+  --border-soft: #eee;
+  --text: #222;
+  --text-strong: #08060d;
+  --text-muted: #666;
+  --text-faint: #888;
+  --text-on-accent: #fff;
+  --accent: #1a73e8;
+  --accent-hover: #1660c3;
+  --accent-soft: rgba(26, 115, 232, 0.06);
+  --error: #c0392b;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-toolbar: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --scrollbar: #ccc;
+  --scrollbar-hover: #999;
+  --backdrop: rgba(0, 0, 0, 0.25);
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --bg-elev: #1f2937;
+  --bg-elev-2: #111827;
+  --bg-hover: #2a3441;
+  --bg-active: #1f3050;
+  --border: #374151;
+  --border-soft: #2a3441;
+  --text: #e5e7eb;
+  --text-strong: #f9fafb;
+  --text-muted: #9ca3af;
+  --text-faint: #6b7280;
+  --text-on-accent: #fff;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.15);
+  --error: #f87171;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-toolbar: 0 2px 6px rgba(0, 0, 0, 0.5);
+  --scrollbar: #4b5563;
+  --scrollbar-hover: #6b7280;
+  --backdrop: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
 html, body, #root {
   margin: 0;
   padding: 0;
   width: 100%;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  /* iOS Safari: предотвратяваме bounce/overscroll на цялата страница */
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
+  background: var(--bg-elev-2);
+  color: var(--text);
 }
 
-/* Dynamic viewport за mobile: dvh уважава скриваща се address bar.
-   Fallback към vh за стари браузъри (Safari < 15.4, Chrome < 108). */
 html {
   height: 100vh;
   height: 100dvh;
@@ -18,7 +68,6 @@ html {
 body {
   height: 100vh;
   height: 100dvh;
-  /* Изключваме pull-to-refresh */
   overscroll-behavior-y: none;
 }
 
@@ -38,11 +87,21 @@ body {
 .leaflet-popup-content-wrapper {
   border-radius: 8px;
   padding: 0;
+  background: var(--bg-elev);
+  color: var(--text);
+}
+
+.leaflet-popup-tip {
+  background: var(--bg-elev);
 }
 
 .leaflet-popup-content {
   margin: 0 !important;
   width: auto !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-muted) !important;
 }
 
 /* === ETA content (used in both popup and bottom sheet) === */
@@ -52,7 +111,7 @@ body {
   max-width: 460px;
   padding: 12px 14px 10px;
   font-size: 13px;
-  color: #222;
+  color: var(--text);
   display: flex;
   flex-direction: column;
 }
@@ -63,14 +122,14 @@ body {
   gap: 8px;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-soft);
   line-height: 1.3;
 }
 
 .eta-popup__stop-num {
   font-weight: 700;
   font-size: 15px;
-  color: #1a73e8;
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -78,18 +137,28 @@ body {
 .eta-popup__stop-name {
   font-weight: 600;
   font-size: 14px;
-  color: #08060d;
+  color: var(--text-strong);
   word-break: normal;
   overflow-wrap: break-word;
 }
 
 .eta-popup__msg {
   padding: 10px 0;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .eta-popup__msg--err {
-  color: #c0392b;
+  color: var(--error);
+}
+
+.eta-popup__filter-note {
+  margin-top: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  text-align: center;
 }
 
 /* === Table === */
@@ -99,7 +168,7 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #ccc transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 .eta-table__scroll::-webkit-scrollbar {
@@ -111,12 +180,12 @@ body {
 }
 
 .eta-table__scroll::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--scrollbar);
   border-radius: 3px;
 }
 
 .eta-table__scroll::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--scrollbar-hover);
 }
 
 .eta-table {
@@ -128,7 +197,7 @@ body {
 .eta-table thead th {
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--bg-elev);
   z-index: 1;
 }
 
@@ -137,9 +206,9 @@ body {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  color: #888;
+  color: var(--text-faint);
   padding: 4px 6px 6px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .eta-table th:first-child,
@@ -154,22 +223,12 @@ body {
 
 .eta-table td {
   padding: 5px 6px;
-  border-bottom: 1px solid #f4f4f4;
+  border-bottom: 1px solid var(--border-soft);
   vertical-align: middle;
 }
 
 .eta-table tr:last-child td {
   border-bottom: none;
-}
-
-/* Highlighted row (избрана линия) */
-.eta-table .eta-row--highlighted td {
-  background: rgba(26, 115, 232, 0.06);
-}
-
-.eta-table .eta-row--highlighted td:first-child {
-  border-left: 3px solid #1a73e8;
-  padding-left: 6px;
 }
 
 .eta-table th.eta-table__col-line,
@@ -191,7 +250,7 @@ body {
   width: 40px;
   text-align: left;
   font-variant-numeric: tabular-nums;
-  color: #555;
+  color: var(--text-muted);
 }
 
 .eta-table th.eta-table__col-dest,
@@ -201,7 +260,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 0;
-  color: #444;
+  color: var(--text);
 }
 
 /* === Line badge === */
@@ -211,8 +270,8 @@ body {
   min-width: 32px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: #1a73e8;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   font-weight: 600;
   font-size: 12px;
   text-align: center;
@@ -227,9 +286,9 @@ body {
   align-items: center;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-soft);
   font-size: 11px;
-  color: #999;
+  color: var(--text-faint);
 }
 
 .eta-popup__refresh-btn {
@@ -239,29 +298,28 @@ body {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
-  color: #555;
+  background: var(--bg-elev);
+  color: var(--text-muted);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
-  /* по-голяма tap area без visual difference */
   -webkit-tap-highlight-color: transparent;
 }
 
 .eta-popup__refresh-btn:hover:not(:disabled) {
-  background: #f0f4fb;
-  color: #1a73e8;
-  border-color: #1a73e8;
+  background: var(--bg-active);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .eta-popup__refresh-btn:active:not(:disabled) {
-  background: #e0e8f5;
+  background: var(--bg-active);
 }
 
 .eta-popup__refresh-btn:disabled {
   cursor: default;
-  color: #1a73e8;
+  color: var(--accent);
 }
 
 .eta-popup__refresh-btn .spinning {
@@ -279,7 +337,7 @@ body {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--backdrop);
   z-index: 998;
   animation: fade-in 0.18s ease-out;
 }
@@ -290,10 +348,9 @@ body {
   right: 0;
   bottom: 0;
   z-index: 999;
-  background: #fff;
+  background: var(--bg-elev);
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
-  /* Безопасна area за iOS home indicator */
   padding-bottom: env(safe-area-inset-bottom, 0);
   display: flex;
   flex-direction: column;
@@ -301,10 +358,8 @@ body {
   max-height: 70dvh;
   animation: slide-up 0.22s ease-out;
   overscroll-behavior: contain;
-  /* Покриваме напълно Leaflet attribution-а */
   box-sizing: border-box;
 }
-
 
 .sheet__handle {
   display: block;
@@ -327,7 +382,7 @@ body {
   width: 40px;
   height: 4px;
   border-radius: 2px;
-  background: #d0d0d0;
+  background: var(--border);
 }
 
 .sheet .eta-popup {
@@ -338,13 +393,11 @@ body {
   font-size: 14px;
   min-height: 0;
   box-sizing: border-box;
-  /* sheet е flex column container - eta-popup трябва да flex-grow */
   flex: 1;
   overflow: hidden;
 }
 
 .sheet .eta-table__scroll {
-  /* flex-съдържа scroll-а - няма нужда от max-height */
   flex: 1;
   max-height: none;
   min-height: 0;
@@ -375,7 +428,6 @@ body {
 /* === Mobile-specific tweaks === */
 
 @media (max-width: 600px), (hover: none) and (pointer: coarse) {
-  /* По-големи labels на mobile */
   .eta-popup {
     font-size: 14px;
   }
@@ -397,14 +449,12 @@ body {
     padding: 8px 4px;
   }
 
-  /* По-голяма line badge */
   .line-badge {
     min-width: 36px;
     padding: 4px 8px;
     font-size: 13px;
   }
 
-  /* Минути column - малко по-широка за по-големия шрифт */
   .eta-table th.eta-table__col-line,
   .eta-table td.eta-table__col-line {
     width: 52px;
@@ -421,7 +471,6 @@ body {
     width: 46px;
   }
 
-  /* По-голям refresh бутон за палец */
   .eta-popup__refresh-btn {
     width: 36px;
     height: 36px;
@@ -434,7 +483,6 @@ body {
   }
 }
 
-/* Leaflet zoom control: hide на mobile (тъч pinch-to-zoom е по-естествен) */
 @media (hover: none) and (pointer: coarse) {
   .leaflet-control-zoom {
     display: none;
@@ -459,25 +507,25 @@ body {
   gap: 8px;
   width: 100%;
   padding: 10px 14px;
-  background: #fff;
-  border: 1px solid #d6d6d6;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   font-family: inherit;
   font-size: inherit;
-  color: #222;
+  color: var(--text);
   text-align: left;
   -webkit-tap-highlight-color: transparent;
-  min-height: 44px; /* touch target */
+  min-height: 44px;
 }
 
 .line-selector__toggle:active {
-  background: #f5f5f5;
+  background: var(--bg-hover);
 }
 
 .line-selector__placeholder {
-  color: #888;
+  color: var(--text-faint);
   flex: 1;
 }
 
@@ -490,7 +538,7 @@ body {
 
 .line-selector__chevron {
   flex-shrink: 0;
-  color: #666;
+  color: var(--text-muted);
   transition: transform 0.18s ease;
 }
 
@@ -500,10 +548,10 @@ body {
 
 .line-selector__panel {
   margin-top: 8px;
-  background: #fff;
-  border: 1px solid #d6d6d6;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-pop);
   overflow: hidden;
   max-height: 60dvh;
   display: flex;
@@ -515,16 +563,16 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-soft);
   font-weight: 600;
-  color: #08060d;
+  color: var(--text-strong);
   font-size: 13px;
 }
 
 .line-selector__clear {
   border: none;
   background: transparent;
-  color: #1a73e8;
+  color: var(--accent);
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
@@ -534,7 +582,7 @@ body {
 }
 
 .line-selector__clear:hover {
-  background: #f0f4fb;
+  background: var(--bg-active);
 }
 
 .line-selector__grid {
@@ -547,10 +595,10 @@ body {
 
 .line-selector__footer {
   padding: 8px 14px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-soft);
   font-size: 12px;
-  color: #888;
-  background: #fafafa;
+  color: var(--text-faint);
+  background: var(--bg-elev-2);
   flex-shrink: 0;
 }
 
@@ -560,10 +608,10 @@ body {
   justify-content: center;
   min-height: 36px;
   padding: 8px 10px;
-  border: 1px solid #d6d6d6;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
-  color: #333;
+  background: var(--bg-elev);
+  color: var(--text);
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -574,32 +622,83 @@ body {
 }
 
 .line-pick:hover {
-  border-color: #1a73e8;
-  color: #1a73e8;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .line-pick--active {
-  background: #1a73e8;
-  border-color: #1a73e8;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .line-pick--active:hover {
-  background: #1660c3;
-  color: #fff;
+  background: var(--accent-hover);
+  color: var(--text-on-accent);
 }
 
-/* Desktop refinements - line selector може да е по-малък */
+/* Desktop: line selector в ДЯСНО + по-малък */
 @media (min-width: 601px) and (hover: hover) {
   .line-selector {
     top: 16px;
-    left: 16px;
-    right: auto;
+    left: auto;
+    right: 16px;
     width: 360px;
   }
 }
 
-/* === Empty state (no stops match filter) === */
+/* === Toolbar (theme + clear filter buttons) === */
+
+.toolbar {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* По default - mobile: горе вдясно */
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  right: 12px;
+}
+
+.toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  box-shadow: var(--shadow-toolbar);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toolbar__btn:hover {
+  background: var(--bg-active);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.toolbar__btn:active {
+  background: var(--bg-hover);
+}
+
+/* Desktop: toolbar долу вляво (вместо горе вдясно където е line selector сега) */
+@media (min-width: 601px) and (hover: hover) {
+  .toolbar {
+    top: auto;
+    right: auto;
+    bottom: 20px;
+    left: 16px;
+    flex-direction: row;
+  }
+}
+
+/* === Empty state === */
 
 .empty-state {
   position: fixed;
@@ -607,7 +706,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 400;
-  background: #fff;
+  background: var(--bg-elev);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   padding: 28px 24px 24px;
@@ -624,13 +723,13 @@ body {
 .empty-state__title {
   font-weight: 600;
   font-size: 16px;
-  color: #08060d;
+  color: var(--text-strong);
   margin-bottom: 4px;
 }
 
 .empty-state__msg {
   font-size: 13px;
-  color: #666;
+  color: var(--text-muted);
   margin-bottom: 16px;
   line-height: 1.4;
 }
@@ -639,8 +738,8 @@ body {
   display: inline-block;
   padding: 10px 18px;
   border: none;
-  background: #1a73e8;
-  color: #fff;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border-radius: 6px;
   font-family: inherit;
   font-size: 13px;
@@ -650,11 +749,7 @@ body {
 }
 
 .empty-state__btn:hover {
-  background: #1660c3;
-}
-
-.empty-state__btn:active {
-  background: #134f9c;
+  background: var(--accent-hover);
 }
 
 /* === Update prompt (PWA) === */
@@ -709,12 +804,12 @@ body {
 }
 
 .update-prompt__btn--primary {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .update-prompt__btn--primary:hover {
-  background: #1660c3;
+  background: var(--accent-hover);
 }
 
 @media (max-width: 600px) {
