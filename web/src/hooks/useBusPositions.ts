@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchETA, fetchRouteStops } from '../api'
+import { fetchETA, fetchRouteStops, getCachedETA } from '../api'
 import { interpolateBuses } from '../busPosition'
+import { BUS_POLLING_INTERVAL_MS } from '../config'
 import type {
   BusPosition,
   ETAEntry,
@@ -8,19 +9,15 @@ import type {
   Stop,
 } from '../types'
 
-/** Колко често да polling-ваме ETA-тата. */
-const POLLING_INTERVAL_MS = 30_000
 /** Concurrent fetches limit - да не slam-ваме backend-а. */
-const CONCURRENCY = 3
+const CONCURRENCY = 4
 
 /**
  * За избраните линии:
  * - Зарежда route ordering (once cached)
  * - Намира всички уникални спирки в избраните routes
- * - Polling-ва ETA за всяка спирка
+ * - Polling-ва ETA за всяка спирка (с client-side cache - skip fresh entries)
  * - Изчислява bus positions
- *
- * Polling-ът върви само ако има избрани линии и stops са loaded.
  */
 export function useBusPositions(
   selectedLines: string[],
@@ -49,13 +46,17 @@ export function useBusPositions(
   }, [selectedLines.length, routeStops])
 
   // Намираме спирки за polling - union на всички спирки от избраните routes
+  // (само main routes - без "След HH:MM" варианти)
   const stopsToPoll = useMemo(() => {
     if (!routeStops) return [] as number[]
     const set = new Set<number>()
     for (const line of selectedLines) {
       const lineData = routeStops.lines[line]
       if (!lineData) continue
-      for (const route of lineData.routes) {
+      const mainRoutes = lineData.routes
+        .filter((r) => !/^След/i.test(r.label))
+        .slice(0, 2)
+      for (const route of mainRoutes) {
         for (const s of route.stops) set.add(s.number)
       }
     }
@@ -72,38 +73,20 @@ export function useBusPositions(
 
     let cancelled = false
 
-    async function pollOnce() {
-      setLoading(true)
+    /** Computes positions from whatever ETAs are currently in client cache. */
+    function recomputeFromCache() {
       const etasByStop = new Map<number, ETAEntry[]>()
-
-      // Concurrent fetch с rate limit
-      const queue = [...stopsToPoll]
-      const workers = Array(Math.min(CONCURRENCY, queue.length))
-        .fill(0)
-        .map(async () => {
-          while (queue.length > 0 && !cancelled) {
-            const stopNum = queue.shift()!
-            try {
-              const r = await fetchETA(stopNum)
-              if (!cancelled) etasByStop.set(stopNum, r.etas)
-            } catch {
-              // skip - ETA fetch може да fail-не occasionally
-            }
-          }
-        })
-      await Promise.all(workers)
-      if (cancelled) return
-
-      // Calculate positions
+      for (const stopNum of stopsToPoll) {
+        const cached = getCachedETA(stopNum)
+        if (cached) etasByStop.set(stopNum, cached.etas)
+      }
       const allPositions: BusPosition[] = []
       for (const line of selectedLines) {
         const lineData = routeStops!.lines[line]
         if (!lineData) continue
-        // Само 2-те основни посоки - игнорираме alt routes
-        // (route label не започва с "След")
-        const mainRoutes = lineData.routes.filter(
-          (r) => !/^След/i.test(r.label)
-        ).slice(0, 2)
+        const mainRoutes = lineData.routes
+          .filter((r) => !/^След/i.test(r.label))
+          .slice(0, 2)
         for (const route of mainRoutes) {
           const buses = interpolateBuses(
             line,
@@ -114,15 +97,36 @@ export function useBusPositions(
           allPositions.push(...buses)
         }
       }
+      if (!cancelled) setPositions(allPositions)
+    }
 
-      if (!cancelled) {
-        setPositions(allPositions)
-        setLoading(false)
-      }
+    /** Fetch-ва само стопове без свеж client cache. */
+    async function pollOnce() {
+      // fetchETA сам skip-ва ако има свеж cache → 0 заявки във втори cycle
+      setLoading(true)
+
+      const queue = [...stopsToPoll]
+      const workers = Array(Math.min(CONCURRENCY, queue.length))
+        .fill(0)
+        .map(async () => {
+          while (queue.length > 0 && !cancelled) {
+            const stopNum = queue.shift()!
+            try {
+              await fetchETA(stopNum)
+            } catch {
+              // skip - ETA fetch може да fail-не occasionally
+            }
+          }
+        })
+      await Promise.all(workers)
+      if (cancelled) return
+
+      recomputeFromCache()
+      setLoading(false)
     }
 
     pollOnce()
-    pollingRef.current = window.setInterval(pollOnce, POLLING_INTERVAL_MS)
+    pollingRef.current = window.setInterval(pollOnce, BUS_POLLING_INTERVAL_MS)
 
     return () => {
       cancelled = true
