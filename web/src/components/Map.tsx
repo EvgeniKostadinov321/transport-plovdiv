@@ -1,14 +1,20 @@
 import { useEffect, useRef } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
-import { MapContainer, TileLayer, useMap, CircleMarker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, useMap, CircleMarker, Polyline, Popup } from 'react-leaflet'
 import { DEFAULT_ZOOM, PLOVDIV_CENTER, tileUrlForTheme } from '../config'
-import type { BusPosition, GeoPosition, Stop, Theme } from '../types'
+import type {
+  BusPosition,
+  GeoPosition,
+  RouteGeometry,
+  Stop,
+  Theme,
+} from '../types'
+import { getLineColor, getStopColor } from '../colors'
 import { BusMarker } from './BusMarker'
 import { StopMarker } from './StopMarker'
 import { StopPopupContent } from './StopPopupContent'
 import { UserLocationMarker } from './UserLocationMarker'
 import { fetchETA } from '../api'
-import { getStopColor } from '../colors'
 
 /**
  * Inner component с достъп до map instance.
@@ -140,6 +146,7 @@ export function Map({
   userRecenterToken,
   favoriteSet,
   busPositions,
+  routeGeometries,
   onSelectStop,
   onFocusHandled,
   onToggleFavorite,
@@ -153,6 +160,8 @@ export function Map({
   userRecenterToken: number
   favoriteSet: Set<number>
   busPositions: BusPosition[]
+  /** За всяка избрана линия - всичките й directions с polyline coords. */
+  routeGeometries: { line: string; routes: RouteGeometry[] }[]
   onSelectStop: (stop: Stop) => void
   onFocusHandled: () => void
   onToggleFavorite: (stopNumber: number) => void
@@ -175,6 +184,24 @@ export function Map({
       }}
     >
       <TileLayer url={tileUrlForTheme(theme)} key={theme} />
+      {/* Route polylines - под спирките */}
+      {routeGeometries.map(({ line, routes }) => {
+        const color = getLineColor(line)
+        return routes.map((route, ri) => (
+          <Polyline
+            key={`${line}-${route.osmId}-${ri}`}
+            positions={route.coords}
+            pathOptions={{
+              color,
+              weight: 4,
+              opacity: 0.65,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+            interactive={false}
+          />
+        ))
+      })}
       {stops.map((stop) => {
         const isFocused =
           !!focusStop &&

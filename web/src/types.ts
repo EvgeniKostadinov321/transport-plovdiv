@@ -58,6 +58,24 @@ export interface RouteStopsData {
   lines: Record<string, LineRoutes>
 }
 
+/** Една посока на линия с реална geometry от OSM. */
+export interface RouteGeometry {
+  osmId: number
+  name: string
+  from: string | null
+  to: string | null
+  /** Подредени [lat, lng] tuples по реалния път. */
+  coords: [number, number][]
+  nodeCount: number
+}
+
+export interface RouteGeometryData {
+  extractedAt: string
+  source: string
+  lineCount: number
+  lines: Record<string, RouteGeometry[]>
+}
+
 /** Резултат от position interpolation - bus на картата. */
 export interface BusPosition {
   line: string

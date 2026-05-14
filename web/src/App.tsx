@@ -12,6 +12,7 @@ import { useBusPositions } from './hooks/useBusPositions'
 import { useFavorites } from './hooks/useFavorites'
 import { useGeolocation } from './hooks/useGeolocation'
 import { useIsTouch } from './hooks/useIsTouch'
+import { useRouteGeometry } from './hooks/useRouteGeometry'
 import { useStopsAndLines } from './hooks/useStopsAndLines'
 import { useTheme } from './hooks/useTheme'
 import {
@@ -43,6 +44,7 @@ function App() {
     selectedLines,
     stops
   )
+  const routeGeometryData = useRouteGeometry(selectedLines.length > 0)
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
   /** Token се сменя при click на location button - заставя Map да re-center. */
@@ -115,6 +117,17 @@ function App() {
   const showEmptyState =
     !noFilter && stops.length > 0 && visibleStops.length === 0
 
+  /** За всяка избрана линия - вземаме geometry-та й (или празно ако още не е заредено). */
+  const routeGeometries = useMemo(() => {
+    if (!routeGeometryData) return []
+    return selectedLines
+      .map((line) => ({
+        line,
+        routes: routeGeometryData.lines[line] ?? [],
+      }))
+      .filter((g) => g.routes.length > 0)
+  }, [selectedLines, routeGeometryData])
+
   const openMenu = (tab?: TabId) => {
     setMenuInitialTab(tab)
     setMenuOpen(true)
@@ -139,6 +152,7 @@ function App() {
         userRecenterToken={userRecenterToken}
         favoriteSet={favoriteSet}
         busPositions={busPositions}
+        routeGeometries={routeGeometries}
         onSelectStop={setSelectedStop}
         onFocusHandled={() => setFocusStop(null)}
         onToggleFavorite={toggleFavorite}

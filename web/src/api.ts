@@ -1,5 +1,10 @@
 import { API_URL, CLIENT_CACHE_TTL_MS } from './config'
-import type { ETAResponse, RouteStopsData, Stop } from './types'
+import type {
+  ETAResponse,
+  RouteGeometryData,
+  RouteStopsData,
+  Stop,
+} from './types'
 
 // Споделен кеш + in-flight de-dupe между всички StopPopup и hover prefetch
 interface CacheEntry {
@@ -66,6 +71,12 @@ export async function fetchRouteStops(): Promise<RouteStopsData> {
   const res = await fetch(`${API_URL}/api/route-stops`)
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   return (await res.json()) as RouteStopsData
+}
+
+export async function fetchRouteGeometry(): Promise<RouteGeometryData> {
+  const res = await fetch(`${API_URL}/api/route-geometry`)
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return (await res.json()) as RouteGeometryData
 }
 
 /** Премахва излишни кавички и whitespace от ZK label-ите. */

@@ -58,6 +58,29 @@ app.get('/api/route-stops', async (c) => {
   }
 })
 
+let routeGeometryCache: unknown = null
+async function getRouteGeometry(): Promise<unknown> {
+  if (routeGeometryCache) return routeGeometryCache
+  const path = join(__dirname, 'data', 'route-geometry.json')
+  const content = await readFile(path, 'utf8')
+  routeGeometryCache = JSON.parse(content)
+  return routeGeometryCache
+}
+
+app.get('/api/route-geometry', async (c) => {
+  try {
+    const data = await getRouteGeometry()
+    // Big file - cache 1 day at edge
+    c.header('Cache-Control', 'public, max-age=86400')
+    return c.json(data)
+  } catch (err) {
+    return c.json(
+      { error: 'route-geometry load failed', details: err instanceof Error ? err.message : String(err) },
+      500
+    )
+  }
+})
+
 app.get('/api/stops', async (c) => {
   try {
     const data = await getStaticData()
