@@ -22,7 +22,6 @@ export function FavoritesTab({
   const rows: FavoriteRow[] = useMemo(() => {
     const byNumber = new Map<number, Stop>()
     for (const s of stops) byNumber.set(s.number, s)
-    // Newest first
     return [...favorites]
       .sort((a, b) => b.pinnedAt - a.pinnedAt)
       .map((fav) => ({ fav, stop: byNumber.get(fav.stopNumber) ?? null }))
@@ -57,13 +56,15 @@ export function FavoritesTab({
               onClick={() => stop && onSelectStop(stop)}
               disabled={!stop}
             >
-              <span className="favorite-row__num">#{fav.stopNumber}</span>
-              <span className="favorite-row__name">
-                {stop ? cleanText(stop.name) : '(непозната спирка)'}
-              </span>
+              <div className="favorite-row__top">
+                <span className="favorite-row__num">#{fav.stopNumber}</span>
+                <span className="favorite-row__name">
+                  {stop ? cleanText(stop.name) : '(непозната спирка)'}
+                </span>
+              </div>
               {stop && stop.lines.length > 0 && (
-                <span className="favorite-row__lines">
-                  {stop.lines.slice(0, 5).map((l) => (
+                <div className="favorite-row__lines">
+                  {stop.lines.map((l) => (
                     <span
                       key={l}
                       className="line-badge favorite-row__line"
@@ -72,12 +73,7 @@ export function FavoritesTab({
                       {l}
                     </span>
                   ))}
-                  {stop.lines.length > 5 && (
-                    <span className="favorite-row__lines-more">
-                      +{stop.lines.length - 5}
-                    </span>
-                  )}
-                </span>
+                </div>
               )}
             </button>
             <button
