@@ -16,27 +16,27 @@ function legSummary(leg: RouteLeg): { title: string; sub: string; color: string 
   if (leg.type === 'walk') {
     if (leg.kind === 'access') {
       return {
-        title: `Върви ${Math.round(leg.meters)} м`,
-        sub: `до спирка ${leg.toStopName ?? ''}`,
+        title: `🚶 ${Math.round(leg.meters)} м до ${leg.toStopName ?? ''}`,
+        sub: '',
         color: '#9ca3af',
       }
     }
     if (leg.kind === 'egress') {
       return {
-        title: `Слез на ${leg.fromStopName ?? ''}`,
-        sub: `и върви ${Math.round(leg.meters)} м до целта`,
+        title: `🚶 ${Math.round(leg.meters)} м до целта`,
+        sub: `слез на ${leg.fromStopName ?? ''}`,
         color: '#9ca3af',
       }
     }
     return {
-      title: `Прекачи се`,
-      sub: `${Math.round(leg.meters)} м до ${leg.toStopName ?? ''}`,
+      title: `🚶 ${Math.round(leg.meters)} м до ${leg.toStopName ?? ''}`,
+      sub: 'прекачване',
       color: '#9ca3af',
     }
   }
   return {
-    title: `Линия ${leg.line}`,
-    sub: `от ${leg.fromStopName} → слез на ${leg.toStopName} (${leg.stops.length} спирки)`,
+    title: `Линия ${leg.line} → ${leg.toStopName}`,
+    sub: `${leg.stops.length} спирки`,
     color: getLineColor(leg.line),
   }
 }
@@ -128,15 +128,17 @@ export function NavigationBar({
         </div>
         <div className="nav-bar__text">
           <div className="nav-bar__title">{summary.title}</div>
-          <div className="nav-bar__sub">{summary.sub}</div>
-          {liveEtaMin !== null && (
-            <div className="nav-bar__live-eta">
-              🚌 следваш автобус след{' '}
-              <strong>
-                {liveEtaMin === 0 ? 'сега' : `${liveEtaMin} мин`}
-              </strong>
-            </div>
-          )}
+          <div className="nav-bar__sub">
+            {summary.sub}
+            {liveEtaMin !== null && (
+              <>
+                {summary.sub && ' · '}
+                <span className="nav-bar__live-eta">
+                  🚌 {liveEtaMin === 0 ? 'сега' : `${liveEtaMin} мин`}
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <div className="nav-bar__progress">
           {currentLegIndex + 1}/{route.legs.length}
