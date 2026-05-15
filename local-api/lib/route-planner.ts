@@ -1,7 +1,9 @@
 /**
- * Trip planning върху transit graph-а. Multi-objective Dijkstra с три
- * различни weight functions → fastest / fewest-transfers / least-walking.
- * Резултатите de-dup-ват ако дават една и съща leg sequence.
+ * Trip planning върху transit graph-а.
+ *
+ * Yen's K-shortest paths алгоритъм отгоре на augmented-state Dijkstra
+ * `(stopId, currentLine)`. Yen-овия loop produces до K алтернативни пътища
+ * чрез блокиране на edges по previous path-овете.
  *
  * Времеви costs са в **минути**. Walking от/до free coords е представено
  * през виртуални source/sink nodes "__SRC__" / "__DST__".
@@ -13,13 +15,15 @@ import { haversineMeters, transitGraph, type Edge, type StopNode } from './trans
 const MAX_ACCESS_WALK_M = 800
 /** Walking speed (m/s) — синхронизирано с transit-graph. */
 const WALK_SPEED_MPS = 1.2
-/** Tunable penalties per scoring profile.
- *  transferMinutes = average wait + walk time for a transfer */
-const PENALTY = {
-  fastest: { transferMinutes: 7, walkMultiplier: 1.3 },
-  fewestTransfers: { transferMinutes: 25, walkMultiplier: 1.3 },
-  leastWalking: { transferMinutes: 7, walkMultiplier: 3 },
-}
+/** Базови penalty-та. */
+const TRANSFER_MIN = 7
+const WALK_MULTIPLIER = 1.3
+/** Колко алтернативни пътища да върнем. */
+const K_PATHS = 5
+/** Колко candidate paths да съхраним вътрешно (по-голямо за по-добро diversity). */
+const K_CANDIDATES = 30
+/** Максимум cost increase спрямо best path преди да спрем (avoid absurd alternatives). */
+const MAX_COST_OVER_BEST = 1.7
 
 const SRC = '__SRC__'
 const DST = '__DST__'
@@ -68,8 +72,8 @@ export interface RideLeg {
 export type Leg = WalkAccessLeg | RideLeg
 
 export interface RouteOption {
-  /** Етикет за UI. */
-  kind: 'fastest' | 'fewestTransfers' | 'leastWalking'
+  /** Лейбъл за UI: 'fastest' за best, 'alternative' за останалите. */
+  kind: 'fastest' | 'fewestTransfers' | 'leastWalking' | 'alternative'
   totalMinutes: number
   walkMinutes: number
   rideMinutes: number
@@ -114,9 +118,7 @@ export function plan(input: PlanInput): PlanResult {
   }
   const allStops = transitGraph.getAllStops()
 
-  // Access spirki (от origin)
   const accessCandidates = nearbyStops(allStops, input.fromLat, input.fromLng)
-  // Egress spirki (до destination)
   const egressCandidates = nearbyStops(allStops, input.toLat, input.toLng)
   if (accessCandidates.length === 0 || egressCandidates.length === 0) {
     return {
@@ -126,29 +128,107 @@ export function plan(input: PlanInput): PlanResult {
     }
   }
 
-  const profiles: RouteOption['kind'][] = ['fastest', 'fewestTransfers', 'leastWalking']
-  const collected: RouteOption[] = []
+  // Yen's K-shortest paths.
+  // A = списък confirmed shortest paths.
+  // B = candidates (sorted by cost).
+  const A: PathResult[] = []
+  const B: PathResult[] = []
 
-  for (const kind of profiles) {
-    const option = dijkstra(kind, input, accessCandidates, egressCandidates)
-    if (option) collected.push(option)
+  // 1. Initial: best path без блокирани edges.
+  const first = dijkstra(input, accessCandidates, egressCandidates, new Set())
+  if (!first) {
+    return {
+      options: [],
+      accessStopCount: accessCandidates.length,
+      egressStopCount: egressCandidates.length,
+    }
+  }
+  A.push(first)
+
+  // Yen's main loop.
+  for (let k = 1; k < K_PATHS; k++) {
+    const prev = A[k - 1]
+    // За всеки prefix-node на prev (всеки stop в пътя освен sink),
+    // блокираме edge-а от prefix.end → next-state-in-prev и пускаме Dijkstra.
+    for (let i = 0; i < prev.steps.length - 1; i++) {
+      const spurKey = prev.steps[i].key
+
+      // Forbid edges: за всеки confirmed path който shares-ва същия root prefix,
+      // забраняваме next-edge от spurKey.
+      const forbidden = new Set<string>()
+      for (const p of A) {
+        if (p.steps.length <= i + 1) continue
+        let sharedPrefix = true
+        for (let j = 0; j <= i; j++) {
+          if (p.steps[j].key !== prev.steps[j].key) {
+            sharedPrefix = false
+            break
+          }
+        }
+        if (sharedPrefix) {
+          // Block edge spurKey → p.steps[i+1].key
+          forbidden.add(`${p.steps[i].key}>>${p.steps[i + 1].key}`)
+        }
+      }
+
+      // Yen's classical: forbid also nodes on root path (за да не loop-ваме).
+      // Тук reusing nodes is OK тъй като state-augmented (different lines = different states).
+      // Skip this constraint — work with edge-only forbidding.
+
+      const spurResult = dijkstraFromSpur(
+        spurKey,
+        prev,
+        i,
+        egressCandidates,
+        forbidden
+      )
+      if (spurResult) {
+        // Compose full path: root prefix (prev steps 0..i-1) + spur steps (i..end)
+        const rootPrefix = prev.steps.slice(0, i)
+        const fullSteps = [...rootPrefix, ...spurResult.steps]
+        const fullPath: PathResult = {
+          steps: fullSteps,
+          totalCost: spurResult.totalCost,
+          egress: spurResult.egress,
+        }
+        const sig = pathSignature(fullPath)
+        if (!B.some((p) => pathSignature(p) === sig) && !A.some((p) => pathSignature(p) === sig)) {
+          B.push(fullPath)
+        }
+      }
+    }
+
+    if (B.length === 0) break
+    // Pick lowest-cost candidate
+    B.sort((a, b) => a.totalCost - b.totalCost)
+    const next = B.shift()!
+    // Cost sanity — спираме ако next е значително по-лош от best
+    if (next.totalCost > A[0].totalCost * MAX_COST_OVER_BEST) break
+    A.push(next)
+    if (B.length > K_CANDIDATES) B.length = K_CANDIDATES
   }
 
-  // De-dup по leg signature
+  // Reconstruct as RouteOptions
+  const opts: RouteOption[] = A.map((p, i) =>
+    reconstructPath(p, i === 0 ? 'fastest' : 'alternative', input)
+  )
+
+  // De-dup по leg signature (safety net — Yen shouldn't produce identical paths)
   const seen = new Set<string>()
   const unique: RouteOption[] = []
-  for (const opt of collected) {
+  for (const opt of opts) {
     const sig = legSignature(opt.legs)
     if (seen.has(sig)) continue
     seen.add(sig)
     unique.push(opt)
   }
-  // Sort: fastest първи, после по totalMinutes
-  unique.sort((a, b) => {
-    if (a.kind === 'fastest' && b.kind !== 'fastest') return -1
-    if (b.kind === 'fastest' && a.kind !== 'fastest') return 1
-    return a.totalMinutes - b.totalMinutes
-  })
+
+  // Sort by REAL total minutes (Yen-овия cost включва transfer penalty, което
+  // изкривява ranking-а). User вижда реалното време, не cost-а.
+  unique.sort((a, b) => a.totalMinutes - b.totalMinutes)
+  // Label first as 'fastest', rest as 'alternative'
+  if (unique.length > 0) unique[0].kind = 'fastest'
+  for (let i = 1; i < unique.length; i++) unique[i].kind = 'alternative'
 
   return {
     options: unique,
@@ -179,25 +259,101 @@ function nearbyStops(
   return result.slice(0, 10)
 }
 
+/** Структура за internal path representation в Yen-овия loop. */
+interface PathStep {
+  key: string
+  edge: ScoredEdge | null
+  accessChoice?: AccessCandidate
+}
+
+interface PathResult {
+  steps: PathStep[]
+  totalCost: number
+  egress: AccessCandidate
+}
+
+function pathSignature(p: PathResult): string {
+  return p.steps.map((s) => s.key).join('>') + ':' + p.egress.stop.id
+}
+
+/**
+ * Augmented Dijkstra. Връща best path който избягва `forbiddenEdges`
+ * (set от "fromKey>>toKey" strings). Connect-ва SRC (виртуален) през
+ * access stops, expand-ва graph, finds best egress stop.
+ */
 function dijkstra(
-  kind: RouteOption['kind'],
-  input: PlanInput,
+  _input: PlanInput,
   access: AccessCandidate[],
-  egress: AccessCandidate[]
-): RouteOption | null {
-  const penalty = PENALTY[kind]
+  egress: AccessCandidate[],
+  forbiddenEdges: Set<string>
+): PathResult | null {
+  void _input
+  return dijkstraRun(access, egress, forbiddenEdges)
+}
+
+/**
+ * Same Dijkstra но стартиращ от spurKey със зададена `initialCost` и `prev`
+ * (което вече sets root-а на path-а). Yen ползва това за да extend-ва spur-ове.
+ *
+ * spurInitState: ако !== null, се ползва вместо access-initialization. Полето
+ * `prev` указва каква е root-цената + parent-link за reconstruction.
+ */
+function dijkstraFromSpur(
+  spurKey: string,
+  prevPath: PathResult,
+  spurIndex: number,
+  egress: AccessCandidate[],
+  forbiddenEdges: Set<string>
+): PathResult | null {
   const egressSet = new Map<string, AccessCandidate>()
   for (const e of egress) egressSet.set(e.stop.id, e)
 
-  /** distances[stateKey] = minutes от SRC */
+  // Cost до spurKey = sum на step costs до spurIndex.
+  // Тъй като нямаме per-step cost запазен явно, ще re-construct-ваме чрез
+  // running cumulative cost reconstruction. Лесно — взимаме prevPath.steps[spurIndex].cumCost.
+  const rootCost = stepCumCost(prevPath, spurIndex)
+
   const dist = new Map<string, number>()
-  /** parents за reconstruction */
-  const parents = new Map<string, { prevKey: string; edge: ScoredEdge | null; accessChoice?: AccessCandidate }>()
-  /** Min-heap (тривиална имплементация: sorted array с push + shift)
-   *  За graph с ~500 стопа е достатъчно бързо. */
+  const parents = new Map<string, PathStep & { prevKey: string }>()
   const pq: PqEntry[] = []
   const pushPq = (e: PqEntry) => {
-    // Insertion sort — fine за тоя размер
+    let lo = 0
+    let hi = pq.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (pq[mid].cost < e.cost) lo = mid + 1
+      else hi = mid
+    }
+    pq.splice(lo, 0, e)
+  }
+
+  // Initialize в spurKey с rootCost.
+  dist.set(spurKey, rootCost)
+  // Inherit accessChoice + edge от prev path
+  const spurStep = prevPath.steps[spurIndex]
+  parents.set(spurKey, {
+    prevKey: SRC,
+    key: spurKey,
+    edge: spurStep.edge,
+    accessChoice: spurStep.accessChoice,
+  })
+  pushPq({ cost: rootCost, node: spurKey, parent: SRC, edge: spurStep.edge })
+
+  return runDijkstraLoop(dist, parents, pq, pushPq, egressSet, forbiddenEdges, spurStep)
+}
+
+function dijkstraRun(
+  access: AccessCandidate[],
+  egress: AccessCandidate[],
+  forbiddenEdges: Set<string>
+): PathResult | null {
+  const egressSet = new Map<string, AccessCandidate>()
+  for (const e of egress) egressSet.set(e.stop.id, e)
+
+  const dist = new Map<string, number>()
+  const parents = new Map<string, PathStep & { prevKey: string }>()
+  const pq: PqEntry[] = []
+  const pushPq = (e: PqEntry) => {
     let lo = 0
     let hi = pq.length
     while (lo < hi) {
@@ -210,17 +366,35 @@ function dijkstra(
 
   // Initialize: SRC → всеки access stop с walking cost
   for (const acc of access) {
-    const startKey = stateKey(acc.stop.id, null) // entry state, още без line
-    const cost = acc.minutes * penalty.walkMultiplier
+    const startKey = stateKey(acc.stop.id, null)
+    const cost = acc.minutes * WALK_MULTIPLIER
     if (cost < (dist.get(startKey) ?? Infinity)) {
       dist.set(startKey, cost)
-      parents.set(startKey, { prevKey: SRC, edge: null, accessChoice: acc })
+      parents.set(startKey, {
+        prevKey: SRC,
+        key: startKey,
+        edge: null,
+        accessChoice: acc,
+      })
       pushPq({ cost, node: startKey, parent: SRC, edge: null })
     }
   }
 
+  return runDijkstraLoop(dist, parents, pq, pushPq, egressSet, forbiddenEdges, null)
+}
+
+function runDijkstraLoop(
+  dist: Map<string, number>,
+  parents: Map<string, PathStep & { prevKey: string }>,
+  pq: PqEntry[],
+  pushPq: (e: PqEntry) => void,
+  egressSet: Map<string, AccessCandidate>,
+  forbiddenEdges: Set<string>,
+  spurInitial: PathStep | null
+): PathResult | null {
   let bestSinkKey: string | null = null
   let bestSinkCost = Infinity
+  let bestEgress: AccessCandidate | null = null
 
   while (pq.length > 0) {
     const cur = pq.shift()!
@@ -232,21 +406,22 @@ function dijkstra(
     // Check egress
     const egCandidate = egressSet.get(stopId)
     if (egCandidate) {
-      const total = cur.cost + egCandidate.minutes * penalty.walkMultiplier
+      const total = cur.cost + egCandidate.minutes * WALK_MULTIPLIER
       if (total < bestSinkCost) {
         bestSinkCost = total
         bestSinkKey = cur.node
+        bestEgress = egCandidate
       }
     }
 
-    if (cur.cost >= bestSinkCost) continue // дъл прекъсваме
+    if (cur.cost >= bestSinkCost) continue
 
-    // Predecessor info — нужно за да познаем дали последният edge е walk
+    // Predecessor info
     const parentInfo = parents.get(cur.node)
+    // При spur init, parentInfo за spurKey идва от inherited edge — третираме като normal
     const lastEdgeWasWalk =
       parentInfo?.edge !== null && parentInfo?.edge?.edge?.type === 'walk'
 
-    // Expand edges
     const edges = transitGraph.getEdges(stopId)
     for (const edge of edges) {
       let edgeMinutes = edge.minutes
@@ -255,27 +430,25 @@ function dijkstra(
 
       if (edge.type === 'ride') {
         nextLine = edge.line
-        // Transfer penalty: при смяна на линия (true transfer)
         if (lineKey !== null && lineKey !== edge.line) {
-          weight += penalty.transferMinutes
-        }
-        // Boarding penalty след walk transfer (waiting for next bus)
-        else if (lastEdgeWasWalk && parentInfo?.accessChoice === undefined) {
-          weight += penalty.transferMinutes
+          weight += TRANSFER_MIN
+        } else if (lastEdgeWasWalk && parentInfo?.accessChoice === undefined) {
+          weight += TRANSFER_MIN
         }
       } else {
-        // walk transfer
-        // Disallow consecutive walks — те произвеждат странични loops
-        // и реално един walk transfer покрива достатъчно дистанция (300m).
         if (lastEdgeWasWalk) continue
-        // Disallow walking веднага след access (юзърът вече ходи, не трябва
-        // да пресича пеша към друга спирка преди да хване автобус).
         if (parentInfo?.accessChoice !== undefined) continue
+        // При spur init: ако spur е достигнат след walk, не разрешаваме нов walk
+        if (spurInitial && spurInitial.edge?.edge?.type === 'walk' && cur.node === parents.keys().next().value) {
+          continue
+        }
         nextLine = null
-        weight = edgeMinutes * penalty.walkMultiplier
+        weight = edgeMinutes * WALK_MULTIPLIER
       }
 
       const nextKey = stateKey(edge.toStopId, nextLine)
+      const edgeKey = `${cur.node}>>${nextKey}`
+      if (forbiddenEdges.has(edgeKey)) continue
       const nextCost = cur.cost + weight
       if (nextCost < (dist.get(nextKey) ?? Infinity)) {
         dist.set(nextKey, nextCost)
@@ -285,35 +458,87 @@ function dijkstra(
           currentLine: nextLine,
           rawMinutes: edgeMinutes,
         }
-        parents.set(nextKey, { prevKey: cur.node, edge: scored })
+        parents.set(nextKey, {
+          prevKey: cur.node,
+          key: nextKey,
+          edge: scored,
+        })
         pushPq({ cost: nextCost, node: nextKey, parent: cur.node, edge: scored })
       }
     }
   }
 
-  if (!bestSinkKey) return null
-  return reconstruct(kind, input, parents, bestSinkKey, egressSet)
-}
+  if (!bestSinkKey || !bestEgress) return null
 
-function reconstruct(
-  kind: RouteOption['kind'],
-  input: PlanInput,
-  parents: Map<string, { prevKey: string; edge: ScoredEdge | null; accessChoice?: AccessCandidate }>,
-  sinkKey: string,
-  egressSet: Map<string, AccessCandidate>
-): RouteOption {
-  // Walk backwards до SRC
-  type Step = { key: string; edge: ScoredEdge | null; accessChoice?: AccessCandidate }
-  const steps: Step[] = []
-  let curKey = sinkKey
-  while (true) {
+  // Reconstruct PathStep[] от parents map
+  const steps: PathStep[] = []
+  let curKey: string = bestSinkKey
+  while (curKey !== SRC) {
     const p = parents.get(curKey)
     if (!p) break
-    steps.push({ key: curKey, edge: p.edge, accessChoice: p.accessChoice })
+    steps.push({ key: p.key, edge: p.edge, accessChoice: p.accessChoice })
     if (p.prevKey === SRC) break
     curKey = p.prevKey
   }
   steps.reverse()
+
+  return { steps, totalCost: bestSinkCost, egress: bestEgress }
+}
+
+/**
+ * Cumulative cost до step i (inclusive of step[i]'s edge).
+ * Замомия weight calculation от Dijkstra-та — TRANSFER_MIN при line change или
+ * boarding след walk. WALK_MULTIPLIER при walk edges.
+ */
+function stepCumCost(path: PathResult, stepIndex: number): number {
+  let cost = 0
+  let prevLine: string | null = null
+  let lastWasWalk = false
+  let hadAccessOnly = true
+
+  for (let i = 0; i <= stepIndex; i++) {
+    const step = path.steps[i]
+    if (step.accessChoice && !step.edge) {
+      cost += step.accessChoice.minutes * WALK_MULTIPLIER
+      prevLine = null
+      lastWasWalk = false
+      hadAccessOnly = true
+      continue
+    }
+    if (!step.edge) continue
+    const e = step.edge.edge
+    if (e.type === 'ride') {
+      const line = e.line
+      let weight = e.minutes
+      if (prevLine !== null && prevLine !== line) {
+        weight += TRANSFER_MIN
+      } else if (lastWasWalk && !hadAccessOnly) {
+        weight += TRANSFER_MIN
+      }
+      cost += weight
+      prevLine = line
+      lastWasWalk = false
+      hadAccessOnly = false
+    } else {
+      cost += e.minutes * WALK_MULTIPLIER
+      prevLine = null
+      lastWasWalk = true
+      hadAccessOnly = false
+    }
+  }
+  return cost
+}
+
+function reconstructPath(
+  path: PathResult,
+  kind: RouteOption['kind'],
+  input: PlanInput
+): RouteOption {
+  const steps = path.steps
+  const sinkKey = path.egress.stop.id
+  const egressSet = new Map<string, AccessCandidate>()
+  egressSet.set(path.egress.stop.id, path.egress)
+  void sinkKey
 
   // Build legs
   const legs: Leg[] = []
@@ -427,8 +652,7 @@ function reconstruct(
   }
 
   // Egress walk
-  const lastStopId = sinkKey.split('|')[0]
-  const eg = egressSet.get(lastStopId)
+  const eg = path.egress
   if (eg) {
     legs.push({
       type: 'walk',

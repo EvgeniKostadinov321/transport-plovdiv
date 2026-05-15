@@ -60,7 +60,7 @@ export interface VehicleTrip {
 
 // === Trip planning ===
 
-export type RoutePlanKind = 'fastest' | 'fewestTransfers' | 'leastWalking'
+export type RoutePlanKind = 'fastest' | 'fewestTransfers' | 'leastWalking' | 'alternative'
 
 export interface RouteWalkLeg {
   type: 'walk'

@@ -11,6 +11,7 @@ import type {
 
 const KIND_LABEL: Record<RouteOption['kind'], string> = {
   fastest: 'Най-бърз',
+  alternative: 'Алтернатива',
   fewestTransfers: 'Най-малко прекачвания',
   leastWalking: 'Най-малко ходене',
 }

@@ -62,8 +62,8 @@ function App() {
     currentLegIndex: number
   } | null>(null)
   const [navMissedBus, setNavMissedBus] = useState(false)
-  /** За user-disable на гласовите cues (UI control later). */
-  const [navSpeechEnabled] = useState(true)
+  /** Гласови cues — по default off. (TODO: UI toggle за enable.) */
+  const [navSpeechEnabled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   /** Веднъж отворено меню → остава mounted (с open=false), за да запази state. */
   const [menuEverOpened, setMenuEverOpened] = useState(false)
