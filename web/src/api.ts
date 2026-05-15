@@ -131,6 +131,29 @@ export async function geocode(query: string): Promise<GeocodeResult[]> {
     .filter((g) => g.label.length > 0)
 }
 
+export interface LiveEtaEntry {
+  vehicleId: string
+  arrivalMs: number
+  delayMs: number
+}
+
+/**
+ * Live ETA-та за (line, stop) базирани на real-time GPS positions от
+ * livetransport. По-точни от ZK защото отразяват delay-а на конкретния
+ * автобус. Връща сортиран list (next bus първи).
+ */
+export async function fetchLiveEta(
+  line: string,
+  stop: string
+): Promise<LiveEtaEntry[]> {
+  const res = await fetch(
+    `${API_URL}/api/eta-live?line=${encodeURIComponent(line)}&stop=${encodeURIComponent(stop)}`
+  )
+  if (!res.ok) return []
+  const data = (await res.json()) as { entries?: LiveEtaEntry[] }
+  return data.entries ?? []
+}
+
 export async function fetchVehicleTrip(vehicleId: string): Promise<VehicleTrip> {
   const res = await fetch(
     `${API_URL}/api/vehicle/${encodeURIComponent(vehicleId)}/trip`

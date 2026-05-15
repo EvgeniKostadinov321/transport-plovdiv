@@ -125,6 +125,50 @@ async function fetchVehicleTrip(vehicleId: string): Promise<DecodedTrip | null> 
 }
 
 /**
+ * Live ETA-та за (line, stopId). Намира всички active vehicles на тази линия
+ * чиято trip ще премине през stopId на/след nextStop. Връща сортиран list
+ * от arrival timestamps + vehicleId-та.
+ *
+ * За точно ETA ползваме `trip.stopScheduled[i] + trip.delayMs` (т.е. live
+ * delay от vehicle, не raw schedule).
+ */
+export interface LiveETAEntry {
+  vehicleId: string
+  arrivalMs: number
+  delayMs: number
+}
+
+export async function getLiveETA(
+  line: string,
+  stopId: string
+): Promise<LiveETAEntry[]> {
+  const vehicles = liveTransport.getSnapshot().filter((v) => v.line === line)
+  const results: LiveETAEntry[] = []
+  const promises = vehicles.map(async (v) => {
+    try {
+      const status = await getVehicleTripStatus(v.id)
+      if (!status) return
+      const idx = status.trip.stopIds.indexOf(stopId)
+      if (idx < 0) return // тази vehicle не минава през stop
+      if (idx < status.nextStop) return // вече е минала
+      const scheduled = status.trip.stopScheduled[idx]
+      if (!scheduled) return
+      const arrival = scheduled + status.delayMs
+      results.push({
+        vehicleId: status.vehicleId,
+        arrivalMs: arrival,
+        delayMs: status.delayMs,
+      })
+    } catch {
+      // skip vehicles whose trip endpoint fails
+    }
+  })
+  await Promise.all(promises)
+  results.sort((a, b) => a.arrivalMs - b.arrivalMs)
+  return results
+}
+
+/**
  * Per-vehicle trip status. Връща trip metadata + текущия nextStop + delay.
  * Кеш-ва се за 30s — достатъчно бързо за UI, не натоварва livetransport.
  */

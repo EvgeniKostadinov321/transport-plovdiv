@@ -14,7 +14,7 @@ import { getStaticData } from './lib/static-data.ts'
 import { liveTransport } from './lib/livetransport-client.ts'
 import { plan } from './lib/route-planner.ts'
 import { transitGraph } from './lib/transit-graph.ts'
-import { getTripsForLine, getVehicleTripStatus } from './lib/trips-client.ts'
+import { getLiveETA, getTripsForLine, getVehicleTripStatus } from './lib/trips-client.ts'
 
 const app = new Hono()
 
@@ -156,6 +156,30 @@ app.post('/api/route/plan', async (c) => {
 })
 
 app.get('/api/route/stats', (c) => c.json(transitGraph.getStats()))
+
+/**
+ * Live ETA-та за (line, stopId) базирани на real-time vehicle positions
+ * + trip schedules. По-точни от ZK защото отразяват live delay.
+ */
+app.get('/api/eta-live', async (c) => {
+  const line = c.req.query('line')
+  const stopCodeOrId = c.req.query('stop')
+  if (!line || !stopCodeOrId) {
+    return c.json({ error: 'line and stop required' }, 400)
+  }
+  // Стопът може да е public code (напр. "1001") или internal stopId.
+  // Опитваме reverse lookup за code → id.
+  const stopId = liveTransport.getStopIdByCode(stopCodeOrId) ?? stopCodeOrId
+  try {
+    const entries = await getLiveETA(line, stopId)
+    return c.json({ line, stopId, entries })
+  } catch (err) {
+    return c.json(
+      { error: 'live ETA failed', details: err instanceof Error ? err.message : String(err) },
+      502
+    )
+  }
+})
 
 /**
  * Trip status за конкретен автобус.

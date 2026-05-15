@@ -127,6 +127,14 @@ class LiveTransportClient {
     return [...this.stopIdToMeta.keys()]
   }
 
+  /** Public stop code (напр. "1001") → internal stopId. Reverse mapping. */
+  getStopIdByCode(code: string): string | null {
+    for (const [id, meta] of this.stopIdToMeta) {
+      if (meta.code === code) return id
+    }
+    return null
+  }
+
   getStats() {
     return {
       connected: this.connected,

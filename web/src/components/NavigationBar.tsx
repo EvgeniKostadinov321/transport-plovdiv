@@ -6,11 +6,11 @@
  * speech synthesis, wake lock.
  */
 import { useEffect, useState } from 'react'
-import { fetchETA } from '../api'
+import { fetchLiveEta } from '../api'
 import { getLineColor } from '../colors'
 import type { RouteLeg, RouteOption } from '../types'
 
-const ETA_REFRESH_MS = 25_000
+const ETA_REFRESH_MS = 20_000
 
 function legSummary(leg: RouteLeg): { title: string; sub: string; color: string } {
   if (leg.type === 'walk') {
@@ -63,7 +63,8 @@ export function NavigationBar({
   const isLast = currentLegIndex >= route.legs.length - 1
 
   // За access/transfer walk leg-а, fetch-ваме live ETA на target stop за
-  // upcoming ride leg-а.
+  // upcoming ride leg-а. Ползваме livetransport GPS-based ETA (не ZK), което
+  // отразява реалния live delay на конкретния автобус.
   useEffect(() => {
     if (!leg || leg.type !== 'walk' || leg.kind === 'egress' || !leg.toStopCode) {
       setLiveEtaMin(null)
@@ -74,17 +75,18 @@ export function NavigationBar({
       setLiveEtaMin(null)
       return
     }
-    const stopCode = parseInt(leg.toStopCode, 10)
-    if (!Number.isFinite(stopCode)) return
-    const targetLine = next.line
     let cancelled = false
 
     const load = async () => {
       try {
-        const r = await fetchETA(stopCode)
+        const entries = await fetchLiveEta(next.line, leg.toStopCode!)
         if (cancelled) return
-        const match = r.etas.find((e) => e.line === targetLine)
-        setLiveEtaMin(match ? match.minutes : null)
+        if (entries.length === 0) {
+          setLiveEtaMin(null)
+          return
+        }
+        const min = Math.max(0, Math.round((entries[0].arrivalMs - Date.now()) / 60000))
+        setLiveEtaMin(min)
       } catch {
         // skip
       }
