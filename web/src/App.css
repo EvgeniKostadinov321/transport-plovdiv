@@ -2108,9 +2108,20 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .loc-input__suggestion:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+.loc-input__suggestion-label { font-weight: 500; }
+.loc-input__suggestion-sub {
+  font-size: 11px;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .loc-input__loading {

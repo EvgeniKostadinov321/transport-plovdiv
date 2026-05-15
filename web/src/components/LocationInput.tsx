@@ -137,7 +137,10 @@ export function LocationInput({
                 className="loc-input__suggestion"
                 onClick={() => pick(s)}
               >
-                {s.label}
+                <span className="loc-input__suggestion-label">{s.label}</span>
+                {s.subLabel && (
+                  <span className="loc-input__suggestion-sub">{s.subLabel}</span>
+                )}
               </button>
             </li>
           ))}

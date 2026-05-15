@@ -41,19 +41,27 @@ function legSummary(leg: RouteLeg): { icon: string; text: string } {
 
 export function TripPlanner({
   geo,
+  from,
+  to,
+  onFromChange,
+  onToChange,
   onClose,
   selectedOption,
   onSelectOption,
   onStartNavigation,
 }: {
   geo: GeoPosition | null
+  from: LocationValue | null
+  to: LocationValue | null
+  onFromChange: (v: LocationValue | null) => void
+  onToChange: (v: LocationValue | null) => void
   onClose: () => void
   selectedOption: RouteOption | null
   onSelectOption: (opt: RouteOption | null) => void
   onStartNavigation: (opt: RouteOption) => void
 }) {
-  const [from, setFrom] = useState<LocationValue | null>(null)
-  const [to, setTo] = useState<LocationValue | null>(null)
+  const setFrom = onFromChange
+  const setTo = onToChange
   const [result, setResult] = useState<RoutePlanResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

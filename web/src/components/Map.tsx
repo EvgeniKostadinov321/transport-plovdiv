@@ -227,6 +227,42 @@ function PlannedRouteOverlay({ route }: { route: RouteOption }) {
   )
 }
 
+/**
+ * Цветен dot за preview на from/to преди да е изчислен маршрут.
+ * При autoFit пан-ва картата към тази точка (или прави bounds-fit ако имаме
+ * двойка).
+ */
+function TripPreviewMarker({
+  coord,
+  color,
+  autoFit,
+  pairWith,
+}: {
+  coord: [number, number]
+  color: string
+  autoFit?: boolean
+  pairWith?: [number, number] | null
+}) {
+  const map = useMap()
+  useEffect(() => {
+    if (!autoFit) return
+    if (pairWith) {
+      const bounds = L.latLngBounds([coord, pairWith])
+      map.flyToBounds(bounds, { padding: [80, 80], duration: 0.6, maxZoom: 15 })
+    } else {
+      map.flyTo(coord, Math.max(map.getZoom(), 14), { duration: 0.5 })
+    }
+  }, [coord, autoFit, pairWith, map])
+  return (
+    <CircleMarker
+      center={coord}
+      radius={10}
+      pathOptions={{ fillColor: color, fillOpacity: 1, color: '#fff', weight: 3 }}
+      interactive={false}
+    />
+  )
+}
+
 export function Map({
   stops,
   filterLines,
@@ -240,6 +276,8 @@ export function Map({
   liveVehicles,
   routeGeometries,
   plannedRoute,
+  tripPreviewFrom,
+  tripPreviewTo,
   onSelectStop,
   onSelectVehicle,
   onFocusHandled,
@@ -260,6 +298,9 @@ export function Map({
   routeGeometries: { line: string; routes: { coords: [number, number][] }[] }[]
   /** Текущо избран маршрут от trip planner-а — render-ва се отгоре. */
   plannedRoute: RouteOption | null
+  /** Preview marker за from/to когато trip planner е отворен но route не е намерен. */
+  tripPreviewFrom: [number, number] | null
+  tripPreviewTo: [number, number] | null
   onSelectStop: (stop: Stop) => void
   onSelectVehicle: (vehicle: LiveVehicle) => void
   onFocusHandled: () => void
@@ -354,6 +395,17 @@ export function Map({
         <BusMarker key={v.id} vehicle={v} onSelect={onSelectVehicle} />
       ))}
       {plannedRoute && <PlannedRouteOverlay route={plannedRoute} />}
+      {!plannedRoute && tripPreviewFrom && (
+        <TripPreviewMarker coord={tripPreviewFrom} color="#10b981" autoFit={!tripPreviewTo} />
+      )}
+      {!plannedRoute && tripPreviewTo && (
+        <TripPreviewMarker
+          coord={tripPreviewTo}
+          color="#ef4444"
+          autoFit
+          pairWith={tripPreviewFrom}
+        />
+      )}
     </MapContainer>
   )
 }

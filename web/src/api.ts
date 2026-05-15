@@ -123,11 +123,21 @@ export async function geocode(query: string): Promise<GeocodeResult[]> {
   }
   return (data.items ?? [])
     .filter((it) => it.position && Number.isFinite(it.position.lat))
-    .map((it) => ({
-      label: it.address?.label ?? it.title ?? '',
-      lat: it.position!.lat,
-      lng: it.position!.lng,
-    }))
+    .map((it) => {
+      // Title е къс (e.g. "Пловдивски университет"), address.label е пълен
+      // (e.g. "Пловдивски университет Паисий Хилендарски, 4027 Пловдив, България").
+      // Показваме title + subLabel = address.label за disambiguation.
+      const title = it.title ?? ''
+      const full = it.address?.label ?? ''
+      const label = title || full
+      const subLabel = full && full !== label ? full : undefined
+      return {
+        label,
+        subLabel,
+        lat: it.position!.lat,
+        lng: it.position!.lng,
+      }
+    })
     .filter((g) => g.label.length > 0)
 }
 

@@ -108,8 +108,10 @@ export interface RoutePlanResult {
 }
 
 export interface GeocodeResult {
-  /** Display label (e.g. "Mall Plovdiv, Пловдив"). */
+  /** Кратък display label (e.g. "Пловдивски университет"). */
   label: string
+  /** Пълен адрес за disambiguation (e.g. "Пловдивски университет Паисий Хилендарски, 4027 Пловдив"). */
+  subLabel?: string
   lat: number
   lng: number
 }

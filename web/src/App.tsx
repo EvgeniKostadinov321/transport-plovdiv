@@ -44,6 +44,7 @@ import {
   saveSelectedLines,
 } from './storage'
 import type { LiveVehicle, RouteOption, Stop } from './types'
+import type { LocationValue } from './components/LocationInput'
 
 function App() {
   const { stops, allLines } = useStopsAndLines()
@@ -52,6 +53,9 @@ function App() {
   const [selectedVehicle, setSelectedVehicle] = useState<LiveVehicle | null>(null)
   const [tripPlannerOpen, setTripPlannerOpen] = useState(false)
   const [plannedRoute, setPlannedRoute] = useState<RouteOption | null>(null)
+  /** TripPlanner inputs — controlled, така че Map може да render-ва preview markers. */
+  const [planFrom, setPlanFrom] = useState<LocationValue | null>(null)
+  const [planTo, setPlanTo] = useState<LocationValue | null>(null)
   /** Active navigation state. null = не сме в nav mode. */
   const [navState, setNavState] = useState<{
     route: RouteOption
@@ -258,6 +262,8 @@ function App() {
         liveVehicles={liveVehicles}
         routeGeometries={routeGeometries}
         plannedRoute={plannedRoute}
+        tripPreviewFrom={planFrom ? [planFrom.lat, planFrom.lng] : null}
+        tripPreviewTo={planTo ? [planTo.lat, planTo.lng] : null}
         onSelectStop={(s) => {
           setSelectedVehicle(null)
           setSelectedStop(s)
@@ -346,11 +352,17 @@ function App() {
         {tripPlannerOpen && !navState && (
           <TripPlanner
             geo={geo.position}
+            from={planFrom}
+            to={planTo}
+            onFromChange={setPlanFrom}
+            onToChange={setPlanTo}
             selectedOption={plannedRoute}
             onSelectOption={setPlannedRoute}
             onClose={() => {
               setTripPlannerOpen(false)
               setPlannedRoute(null)
+              setPlanFrom(null)
+              setPlanTo(null)
             }}
             onStartNavigation={(opt) => {
               setPlannedRoute(opt)
