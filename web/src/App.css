@@ -2335,6 +2335,23 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   font-variant-numeric: tabular-nums;
 }
 
+.nav-bar__live-eta {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.nav-bar__live-eta strong { color: #34d399; }
+
+.nav-bar__alert {
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  background: rgba(180, 83, 9, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .nav-bar__all-legs {
   list-style: none;
   margin: 0;

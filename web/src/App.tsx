@@ -32,8 +32,11 @@ import { useLineTrips } from './hooks/useLineTrips'
 import { useLiveVehicles } from './hooks/useLiveVehicles'
 import { useGeolocation } from './hooks/useGeolocation'
 import { useIsTouch } from './hooks/useIsTouch'
+import { useNavigationProgress } from './hooks/useNavigationProgress'
+import { useSpeech } from './hooks/useSpeech'
 import { useStopsAndLines } from './hooks/useStopsAndLines'
 import { useTheme } from './hooks/useTheme'
+import { useWakeLock } from './hooks/useWakeLock'
 import {
   hasShownGeoIntro,
   loadSelectedLines,
@@ -54,6 +57,9 @@ function App() {
     route: RouteOption
     currentLegIndex: number
   } | null>(null)
+  const [navMissedBus, setNavMissedBus] = useState(false)
+  /** За user-disable на гласовите cues (UI control later). */
+  const [navSpeechEnabled] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
   /** Веднъж отворено меню → остава mounted (с open=false), за да запази state. */
   const [menuEverOpened, setMenuEverOpened] = useState(false)
@@ -69,6 +75,37 @@ function App() {
     removeFavorite,
   } = useFavorites()
   const geo = useGeolocation()
+
+  // Navigation engine — изисква `geo` за position tracking.
+  const navActive = navState !== null
+  const { speak } = useSpeech(navActive && navSpeechEnabled)
+  useWakeLock(navActive)
+
+  useNavigationProgress({
+    active: navActive,
+    route: navState?.route ?? null,
+    currentLegIndex: navState?.currentLegIndex ?? 0,
+    position: geo.position,
+    onAdvance: () => {
+      setNavState((s) => {
+        if (!s) return s
+        if (s.currentLegIndex >= s.route.legs.length - 1) return null
+        return { ...s, currentLegIndex: s.currentLegIndex + 1 }
+      })
+      setNavMissedBus(false)
+    },
+    onArrival: () => {
+      speak('Стигнахте до целта')
+      setNavState(null)
+      setPlannedRoute(null)
+    },
+    onMissedBus: () => {
+      setNavMissedBus(true)
+      speak('Внимание: автобусът изглежда е заминал')
+    },
+    onSpeak: (e) => speak(e.text),
+  })
+
   /** При route plan филтрираме vehicles + trips по route lines, иначе по selectedLines. */
   const effectiveLines = useMemo(
     () => (plannedRoute ? [...new Set(plannedRoute.legs.flatMap((l) => l.type === 'ride' ? [l.line] : []))] : selectedLines),
@@ -327,6 +364,7 @@ function App() {
           <NavigationBar
             route={navState.route}
             currentLegIndex={navState.currentLegIndex}
+            missedBus={navMissedBus}
             onAdvance={() => {
               setNavState((s) => {
                 if (!s) return s
@@ -336,6 +374,7 @@ function App() {
                 }
                 return { ...s, currentLegIndex: s.currentLegIndex + 1 }
               })
+              setNavMissedBus(false)
             }}
             onPrev={() => {
               setNavState((s) =>
@@ -343,10 +382,12 @@ function App() {
                   ? { ...s, currentLegIndex: s.currentLegIndex - 1 }
                   : s
               )
+              setNavMissedBus(false)
             }}
             onEnd={() => {
               setNavState(null)
               setPlannedRoute(null)
+              setNavMissedBus(false)
             }}
           />
         )}
