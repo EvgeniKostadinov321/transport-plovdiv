@@ -12,15 +12,16 @@
  */
 import { useEffect, useRef } from 'react'
 import { distanceMeters } from '../geo'
-import type { GeoPosition, RouteLeg, RouteOption } from '../types'
+import type { GeoPosition, LiveVehicle, RouteLeg, RouteOption } from '../types'
 
 /** Радиус за geo-fence на walk arrival (включително access/transfer/egress). */
 const WALK_ARRIVAL_RADIUS_M = 30
 /** Радиус за ride arrival (по-голям защото GPS в автобуса е по-малко точен). */
 const RIDE_ARRIVAL_RADIUS_M = 60
-/** За missed-bus detection (Phase B3): след колко минути след scheduled
- *  arrival смятаме че сме изпуснали. */
-const MISSED_BUS_GRACE_MS = 90_000
+/** GPS-based missed-bus: vehicle approached this close → past = "passed me". */
+const VEHICLE_APPROACH_MIN_M = 100
+/** GPS-based missed-bus: vehicle distance grew this much from observed min → passed. */
+const VEHICLE_PASSED_DELTA_M = 50
 /** Cooldown между speech announcements, за да не spam-ваме (Phase B4). */
 const SPEAK_COOLDOWN_MS = 8000
 
@@ -34,6 +35,8 @@ interface UseNavParams {
   route: RouteOption | null
   currentLegIndex: number
   position: GeoPosition | null
+  /** Live vehicles за GPS-based missed-bus detection. */
+  vehicles?: LiveVehicle[]
   onAdvance: () => void
   onArrival: () => void
   onMissedBus?: (legIndex: number) => void
@@ -96,6 +99,7 @@ export function useNavigationProgress({
   route,
   currentLegIndex,
   position,
+  vehicles,
   onAdvance,
   onArrival,
   onMissedBus,
@@ -104,14 +108,22 @@ export function useNavigationProgress({
   const lastSpokenRef = useRef<number>(0)
   const missedBusFiredRef = useRef<number>(-1)
   const navStartRef = useRef<number>(0)
+  /** Per-vehicle min observed distance към моя target stop за detection-а. */
+  const vehicleMinDistRef = useRef<Map<string, number>>(new Map())
 
-  // Reset state когато започва нова nav
+  // Reset state когато започва нова nav или сменяме leg
   useEffect(() => {
     if (active) {
       navStartRef.current = Date.now()
       missedBusFiredRef.current = -1
+      vehicleMinDistRef.current.clear()
     }
   }, [active])
+
+  useEffect(() => {
+    // При смяна на leg → reset vehicle tracking
+    vehicleMinDistRef.current.clear()
+  }, [currentLegIndex])
 
   // Speech: announce при entry в нова leg
   useEffect(() => {
@@ -157,28 +169,47 @@ export function useNavigationProgress({
       }
     }
 
-    // Missed-bus (Phase B3): ride leg е "просрочен" ако сме навлезли в nav
-    // > minutes на тази leg + grace, и още не сме се advance-нали.
+    // Missed-bus (GPS-based): за access/transfer walk legs преди ride —
+    // следим vehicles на upcoming ride line. Ако някой се е приближил
+    // (distance < APPROACH_MIN), после се отдалечава (distance > min + DELTA)
+    // → отминал е без мен.
     if (
-      leg.type === 'ride' &&
       onMissedBus &&
-      missedBusFiredRef.current !== currentLegIndex
+      vehicles &&
+      missedBusFiredRef.current !== currentLegIndex &&
+      leg.type === 'walk' &&
+      leg.kind !== 'egress'
     ) {
-      const elapsed = Date.now() - navStartRef.current
-      const expectedLegStart = priorMinutes(route.legs, currentLegIndex) * 60_000
-      const legBudget = leg.minutes * 60_000
-      if (elapsed > expectedLegStart + legBudget + MISSED_BUS_GRACE_MS) {
-        missedBusFiredRef.current = currentLegIndex
-        onMissedBus(currentLegIndex)
+      const nextLeg = route.legs[currentLegIndex + 1]
+      if (nextLeg?.type === 'ride') {
+        const targetLine = nextLeg.line
+        // Target stop е walk-а's destination
+        const targetLat = target.lat
+        const targetLng = target.lng
+        const myDistToStop = dist // user-stop distance — реусваме изчисленото
+        // Само ако юзърът още не е на спирка (има walking distance)
+        if (myDistToStop > 25) {
+          for (const v of vehicles) {
+            if (v.line !== targetLine) continue
+            const vd = distanceMeters(v.lat, v.lng, targetLat, targetLng)
+            const prevMin = vehicleMinDistRef.current.get(v.id)
+            if (prevMin === undefined || vd < prevMin) {
+              vehicleMinDistRef.current.set(v.id, vd)
+            } else if (
+              prevMin < VEHICLE_APPROACH_MIN_M &&
+              vd > prevMin + VEHICLE_PASSED_DELTA_M
+            ) {
+              // Vehicle беше достатъчно близо (минал е през/край спирката)
+              // и сега се отдалечава. Изпуснат.
+              missedBusFiredRef.current = currentLegIndex
+              onMissedBus(currentLegIndex)
+              break
+            }
+          }
+        }
       }
     }
-  }, [active, route, currentLegIndex, position, onAdvance, onArrival, onMissedBus, onSpeak])
-}
-
-function priorMinutes(legs: RouteLeg[], idx: number): number {
-  let sum = 0
-  for (let i = 0; i < idx; i++) sum += legs[i].minutes
-  return sum
+  }, [active, route, currentLegIndex, position, vehicles, onAdvance, onArrival, onMissedBus, onSpeak])
 }
 
 function announceText(leg: RouteLeg, isFinal: boolean): string | null {

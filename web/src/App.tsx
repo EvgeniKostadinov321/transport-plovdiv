@@ -76,7 +76,15 @@ function App() {
   } = useFavorites()
   const geo = useGeolocation()
 
-  // Navigation engine — изисква `geo` за position tracking.
+  /** При route plan филтрираме vehicles + trips по route lines, иначе по selectedLines. */
+  const effectiveLines = useMemo(
+    () => (plannedRoute ? [...new Set(plannedRoute.legs.flatMap((l) => l.type === 'ride' ? [l.line] : []))] : selectedLines),
+    [plannedRoute, selectedLines]
+  )
+  const { vehicles: liveVehicles, status: liveStatus } = useLiveVehicles(effectiveLines)
+  const liveTrips = useLineTrips(effectiveLines)
+
+  // Navigation engine — изисква `geo` + `liveVehicles` (за GPS-based missed-bus).
   const navActive = navState !== null
   const { speak } = useSpeech(navActive && navSpeechEnabled)
   useWakeLock(navActive)
@@ -86,6 +94,7 @@ function App() {
     route: navState?.route ?? null,
     currentLegIndex: navState?.currentLegIndex ?? 0,
     position: geo.position,
+    vehicles: liveVehicles,
     onAdvance: () => {
       setNavState((s) => {
         if (!s) return s
@@ -105,14 +114,6 @@ function App() {
     },
     onSpeak: (e) => speak(e.text),
   })
-
-  /** При route plan филтрираме vehicles + trips по route lines, иначе по selectedLines. */
-  const effectiveLines = useMemo(
-    () => (plannedRoute ? [...new Set(plannedRoute.legs.flatMap((l) => l.type === 'ride' ? [l.line] : []))] : selectedLines),
-    [plannedRoute, selectedLines]
-  )
-  const { vehicles: liveVehicles, status: liveStatus } = useLiveVehicles(effectiveLines)
-  const liveTrips = useLineTrips(effectiveLines)
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
   /** Token се сменя при click на location button - заставя Map да re-center. */
