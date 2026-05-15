@@ -2076,6 +2076,7 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
 .loc-input__suggestions {
   position: absolute;
   top: calc(100% + 4px);
+  bottom: auto;
   left: 0;
   right: 0;
   background: var(--surface, #1f2937);
@@ -2088,6 +2089,12 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 10;
+}
+
+/* Drop-up mode когато няма достатъчно space надолу */
+.loc-input__suggestions--up {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 .loc-input__suggestion {
@@ -2220,5 +2227,32 @@ body { height: 100vh; height: 100dvh; overscroll-behavior-y: none; }
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   opacity: 0.65;
+}
+
+/* === Desktop layout: trip planner като side drawer (отдясно) === */
+
+@media (min-width: 768px) {
+  .trip-planner {
+    left: auto;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    transform: none;
+    width: 420px;
+    max-height: none;
+    height: 100vh;
+    border-radius: 14px 0 0 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
+    animation: trip-planner-in-desktop 0.3s ease-out;
+  }
+
+  @keyframes trip-planner-in-desktop {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  /* Handle-а е mobile-only — на desktop е безсмислен */
+  .trip-planner__handle { display: none; }
 }
 

@@ -29,8 +29,28 @@ export function LocationInput({
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [dropUp, setDropUp] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<number | null>(null)
+
+  // При отваряне на suggestions — измервам колко място има отдолу. Ако
+  // suggestion list-ът не пасва → отварям нагоре. Това решава "list излиза
+  // извън bottom-sheet" на mobile.
+  useEffect(() => {
+    if (!open) return
+    const inputEl = inputRef.current
+    if (!inputEl) return
+    const rect = inputEl.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    // ~240px = max-height на suggestion list-а
+    if (spaceBelow < 240 && spaceAbove > spaceBelow) {
+      setDropUp(true)
+    } else {
+      setDropUp(false)
+    }
+  }, [open, suggestions.length])
 
   // Sync external value changes (e.g. set from GPS)
   useEffect(() => {
@@ -75,6 +95,7 @@ export function LocationInput({
   return (
     <div className="loc-input" ref={containerRef}>
       <input
+        ref={inputRef}
         type="text"
         className="loc-input__field"
         placeholder={placeholder}
@@ -101,7 +122,13 @@ export function LocationInput({
         </button>
       )}
       {open && (suggestions.length > 0 || loading) && (
-        <ul className="loc-input__suggestions">
+        <ul
+          className={
+            dropUp
+              ? 'loc-input__suggestions loc-input__suggestions--up'
+              : 'loc-input__suggestions'
+          }
+        >
           {loading && <li className="loc-input__loading">Търсене…</li>}
           {suggestions.map((s, i) => (
             <li key={i}>

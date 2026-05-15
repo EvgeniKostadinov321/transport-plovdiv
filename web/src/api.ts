@@ -87,31 +87,57 @@ export async function planRoute(
   return (await res.json()) as RoutePlanResult
 }
 
-/** MapTiler Geocoding API. Search-ва само в България чрез country code. */
+/**
+ * Geocoding чрез Nominatim (OSM). MapTiler има слабо residential покритие
+ * в Пловдив — Nominatim има пълните OSM данни.
+ * Filter-ва resultats със viewbox около Plovdiv (bounded=1) за да изключи
+ * far-away matches.
+ */
 export async function geocode(query: string): Promise<GeocodeResult[]> {
-  const key = import.meta.env.VITE_MAPTILER_KEY
-  if (!key || !query.trim()) return []
-  const url = new URL(
-    `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json`
-  )
-  url.searchParams.set('key', key)
-  url.searchParams.set('country', 'BG')
-  url.searchParams.set('language', 'bg')
-  // Bias към Plovdiv area
-  url.searchParams.set('proximity', '24.7453,42.1354')
-  url.searchParams.set('limit', '5')
-  const res = await fetch(url.toString())
+  if (!query.trim()) return []
+  const url = new URL('https://nominatim.openstreetmap.org/search')
+  url.searchParams.set('q', query)
+  url.searchParams.set('format', 'json')
+  url.searchParams.set('addressdetails', '1')
+  url.searchParams.set('limit', '6')
+  url.searchParams.set('accept-language', 'bg')
+  // Plovdiv bounding box (south,north,west,east) — focused, но не bounded
+  // (за да позволим търсене на близки села)
+  url.searchParams.set('viewbox', '24.6,42.20,24.85,42.06')
+  url.searchParams.set('bounded', '0')
+  url.searchParams.set('countrycodes', 'bg')
+  const res = await fetch(url.toString(), {
+    headers: {
+      // Nominatim usage policy изисква identifying User-Agent
+      Accept: 'application/json',
+    },
+  })
   if (!res.ok) return []
-  const data = (await res.json()) as {
-    features?: { place_name?: string; text?: string; center?: [number, number] }[]
-  }
-  return (data.features ?? [])
-    .filter((f) => f.center && f.center.length === 2)
-    .map((f) => ({
-      label: f.place_name ?? f.text ?? '',
-      lat: f.center![1],
-      lng: f.center![0],
-    }))
+  const data = (await res.json()) as Array<{
+    display_name?: string
+    name?: string
+    lat: string
+    lon: string
+    address?: Record<string, string>
+  }>
+  return data
+    .map((f) => {
+      const lat = parseFloat(f.lat)
+      const lng = parseFloat(f.lon)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+      // Compose readable label: name + city / street + number + city
+      const addr = f.address ?? {}
+      const parts: string[] = []
+      if (f.name) parts.push(f.name)
+      else if (addr.road) {
+        parts.push(addr.road + (addr.house_number ? ` ${addr.house_number}` : ''))
+      }
+      const place = addr.city ?? addr.town ?? addr.village ?? addr.suburb
+      if (place && !parts.join(' ').includes(place)) parts.push(place)
+      const label = parts.join(', ') || f.display_name || ''
+      return { label, lat, lng }
+    })
+    .filter((x): x is GeocodeResult => x !== null && x.label.length > 0)
 }
 
 export async function fetchVehicleTrip(vehicleId: string): Promise<VehicleTrip> {
