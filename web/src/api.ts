@@ -88,56 +88,47 @@ export async function planRoute(
 }
 
 /**
- * Geocoding чрез Nominatim (OSM). MapTiler има слабо residential покритие
- * в Пловдив — Nominatim има пълните OSM данни.
- * Filter-ва resultats със viewbox около Plovdiv (bounded=1) за да изключи
- * far-away matches.
+ * Geocoding чрез HERE Geo­coding & Search API (autosuggest endpoint).
+ * Покритие на residential адреси в България е значително по-добро от
+ * MapTiler / Nominatim — HERE има пълни housenumber данни.
+ *
+ * Изисква `VITE_HERE_API_KEY` env var.
+ *
+ * Docs: https://www.here.com/docs/bundle/geocoding-and-search-api-developer-guide/
  */
 export async function geocode(query: string): Promise<GeocodeResult[]> {
   if (!query.trim()) return []
-  const url = new URL('https://nominatim.openstreetmap.org/search')
+  const key = import.meta.env.VITE_HERE_API_KEY
+  if (!key) {
+    console.warn('VITE_HERE_API_KEY not set — geocoding disabled')
+    return []
+  }
+  const url = new URL('https://autosuggest.search.hereapi.com/v1/autosuggest')
   url.searchParams.set('q', query)
-  url.searchParams.set('format', 'json')
-  url.searchParams.set('addressdetails', '1')
+  url.searchParams.set('apiKey', key)
+  // Bias към Plovdiv: at=<lat>,<lng> + малък in=country код
+  url.searchParams.set('at', '42.1354,24.7453')
+  url.searchParams.set('in', 'countryCode:BGR')
+  url.searchParams.set('lang', 'bg-BG')
   url.searchParams.set('limit', '6')
-  url.searchParams.set('accept-language', 'bg')
-  // Plovdiv bounding box (south,north,west,east) — focused, но не bounded
-  // (за да позволим търсене на близки села)
-  url.searchParams.set('viewbox', '24.6,42.20,24.85,42.06')
-  url.searchParams.set('bounded', '0')
-  url.searchParams.set('countrycodes', 'bg')
-  const res = await fetch(url.toString(), {
-    headers: {
-      // Nominatim usage policy изисква identifying User-Agent
-      Accept: 'application/json',
-    },
-  })
+  const res = await fetch(url.toString())
   if (!res.ok) return []
-  const data = (await res.json()) as Array<{
-    display_name?: string
-    name?: string
-    lat: string
-    lon: string
-    address?: Record<string, string>
-  }>
-  return data
-    .map((f) => {
-      const lat = parseFloat(f.lat)
-      const lng = parseFloat(f.lon)
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-      // Compose readable label: name + city / street + number + city
-      const addr = f.address ?? {}
-      const parts: string[] = []
-      if (f.name) parts.push(f.name)
-      else if (addr.road) {
-        parts.push(addr.road + (addr.house_number ? ` ${addr.house_number}` : ''))
-      }
-      const place = addr.city ?? addr.town ?? addr.village ?? addr.suburb
-      if (place && !parts.join(' ').includes(place)) parts.push(place)
-      const label = parts.join(', ') || f.display_name || ''
-      return { label, lat, lng }
-    })
-    .filter((x): x is GeocodeResult => x !== null && x.label.length > 0)
+  const data = (await res.json()) as {
+    items?: Array<{
+      title?: string
+      address?: { label?: string }
+      position?: { lat: number; lng: number }
+      resultType?: string
+    }>
+  }
+  return (data.items ?? [])
+    .filter((it) => it.position && Number.isFinite(it.position.lat))
+    .map((it) => ({
+      label: it.address?.label ?? it.title ?? '',
+      lat: it.position!.lat,
+      lng: it.position!.lng,
+    }))
+    .filter((g) => g.label.length > 0)
 }
 
 export async function fetchVehicleTrip(vehicleId: string): Promise<VehicleTrip> {
