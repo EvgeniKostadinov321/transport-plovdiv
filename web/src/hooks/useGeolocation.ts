@@ -63,9 +63,12 @@ export function useGeolocation(): UseGeolocationResult {
         }
       },
       {
-        enableHighAccuracy: false,
+        // High accuracy = използва GPS hardware. Без този флаг browser-ът
+        // може да върне IP-based location (е.g. център на града), което
+        // обърква routing.
+        enableHighAccuracy: true,
         maximumAge: 10_000,
-        timeout: 15_000,
+        timeout: 20_000,
       }
     )
   }, [])

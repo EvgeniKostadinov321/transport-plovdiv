@@ -244,18 +244,27 @@ function TripPreviewMarker({
   pairWith?: [number, number] | null
 }) {
   const map = useMap()
+  // Извличаме примитивни стойности — dependency-ите ползват тях, не array
+  // reference (App pass-ва нов array всеки render → би причинило fly спам).
+  const lat = coord[0]
+  const lng = coord[1]
+  const pairLat = pairWith?.[0]
+  const pairLng = pairWith?.[1]
   useEffect(() => {
     if (!autoFit) return
-    if (pairWith) {
-      const bounds = L.latLngBounds([coord, pairWith])
+    if (pairLat !== undefined && pairLng !== undefined) {
+      const bounds = L.latLngBounds([
+        [lat, lng],
+        [pairLat, pairLng],
+      ])
       map.flyToBounds(bounds, { padding: [80, 80], duration: 0.6, maxZoom: 15 })
     } else {
-      map.flyTo(coord, Math.max(map.getZoom(), 14), { duration: 0.5 })
+      map.flyTo([lat, lng], Math.max(map.getZoom(), 14), { duration: 0.5 })
     }
-  }, [coord, autoFit, pairWith, map])
+  }, [lat, lng, pairLat, pairLng, autoFit, map])
   return (
     <CircleMarker
-      center={coord}
+      center={[lat, lng]}
       radius={10}
       pathOptions={{ fillColor: color, fillOpacity: 1, color: '#fff', weight: 3 }}
       interactive={false}
