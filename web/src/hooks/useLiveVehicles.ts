@@ -80,18 +80,13 @@ export function useLiveVehicles(selectedLines: string[]): LiveData {
     }
   }, [])
 
-  // Без филтър — всички автобуси които са на активна линия.
-  // С филтър — само избраните линии.
+  // Default: НЯМА автобуси на картата без explicit filter. Това е твърде
+  // натоварено визуално. Юзърът избира линия → виждаме нейните автобуси.
+  if (selectedLines.length === 0) return { vehicles: [], status }
+  const set = new Set(selectedLines)
   const result: LiveVehicle[] = []
-  if (selectedLines.length === 0) {
-    for (const v of vehiclesById.values()) {
-      if (v.line !== null) result.push(v)
-    }
-  } else {
-    const set = new Set(selectedLines)
-    for (const v of vehiclesById.values()) {
-      if (v.line !== null && set.has(v.line)) result.push(v)
-    }
+  for (const v of vehiclesById.values()) {
+    if (v.line !== null && set.has(v.line)) result.push(v)
   }
   return { vehicles: result, status }
 }
