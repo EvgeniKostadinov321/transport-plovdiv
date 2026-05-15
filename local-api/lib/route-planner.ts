@@ -19,11 +19,12 @@ const WALK_SPEED_MPS = 1.2
 const TRANSFER_MIN = 7
 const WALK_MULTIPLIER = 1.3
 /** Колко алтернативни пътища да върнем. */
-const K_PATHS = 5
+const K_PATHS = 10
 /** Колко candidate paths да съхраним вътрешно (по-голямо за по-добро diversity). */
-const K_CANDIDATES = 30
-/** Максимум cost increase спрямо best path преди да спрем (avoid absurd alternatives). */
-const MAX_COST_OVER_BEST = 1.7
+const K_CANDIDATES = 60
+/** Максимум cost increase спрямо best path преди да спрем (avoid absurd alternatives).
+ *  По-щедро defаulto за да accommodate-ме различни line combos. */
+const MAX_COST_OVER_BEST = 3.0
 
 const SRC = '__SRC__'
 const DST = '__DST__'
@@ -128,7 +129,7 @@ export function plan(input: PlanInput): PlanResult {
     }
   }
 
-  // Yen's K-shortest paths.
+  // Yen's K-shortest paths + first-ride-line diversification.
   // A = списък confirmed shortest paths.
   // B = candidates (sorted by cost).
   const A: PathResult[] = []
@@ -144,6 +145,8 @@ export function plan(input: PlanInput): PlanResult {
     }
   }
   A.push(first)
+
+  const allFirstLines = collectFirstRideCandidates(accessCandidates)
 
   // Yen's main loop.
   for (let k = 1; k < K_PATHS; k++) {
@@ -208,8 +211,25 @@ export function plan(input: PlanInput): PlanResult {
     if (B.length > K_CANDIDATES) B.length = K_CANDIDATES
   }
 
+  // Diversification: за всяка достъпна first-ride-line която ВСЕ ОЩЕ не е представена
+  // в A, run отделен Dijkstra forcing я като първа.
+  const firstLinesInA = new Set<string>()
+  for (const p of A) {
+    const fl = getFirstRideLine(p)
+    if (fl) firstLinesInA.add(fl)
+  }
+  const additional: PathResult[] = []
+  for (const line of allFirstLines) {
+    if (firstLinesInA.has(line)) continue
+    const forbidden = forbidFirstLineEdges(accessCandidates, line)
+    const path = dijkstra(input, accessCandidates, egressCandidates, forbidden)
+    if (!path) continue
+    if (getFirstRideLine(path) !== line) continue
+    additional.push(path)
+  }
+
   // Reconstruct as RouteOptions
-  const opts: RouteOption[] = A.map((p, i) =>
+  const opts: RouteOption[] = [...A, ...additional].map((p, i) =>
     reconstructPath(p, i === 0 ? 'fastest' : 'alternative', input)
   )
 
@@ -223,15 +243,41 @@ export function plan(input: PlanInput): PlanResult {
     unique.push(opt)
   }
 
-  // Sort by REAL total minutes (Yen-овия cost включва transfer penalty, което
-  // изкривява ranking-а). User вижда реалното време, не cost-а.
+  // Sort by REAL total minutes.
   unique.sort((a, b) => a.totalMinutes - b.totalMinutes)
+
+  // Diversity-aware final selection: гарантираме поне 1 slot per unique
+  // first-ride-line (за да не са всички с L36 примерно). Останалите slot-ове
+  // — fastest overall.
+  const result: RouteOption[] = []
+  const seenFirstLine = new Set<string>()
+  // First pass: 1 per unique first line, по reda на time
+  for (const opt of unique) {
+    const firstRide = opt.legs.find((l) => l.type === 'ride')
+    const firstLine = firstRide?.type === 'ride' ? firstRide.line : '__none__'
+    if (seenFirstLine.has(firstLine)) continue
+    seenFirstLine.add(firstLine)
+    result.push(opt)
+    if (result.length >= K_PATHS) break
+  }
+  // Second pass: fill remaining slots с fastest still-not-picked
+  if (result.length < K_PATHS) {
+    const inResult = new Set(result.map((r) => legSignature(r.legs)))
+    for (const opt of unique) {
+      if (inResult.has(legSignature(opt.legs))) continue
+      result.push(opt)
+      if (result.length >= K_PATHS) break
+    }
+  }
+  // Re-sort final list by time
+  result.sort((a, b) => a.totalMinutes - b.totalMinutes)
+
   // Label first as 'fastest', rest as 'alternative'
-  if (unique.length > 0) unique[0].kind = 'fastest'
-  for (let i = 1; i < unique.length; i++) unique[i].kind = 'alternative'
+  if (result.length > 0) result[0].kind = 'fastest'
+  for (let i = 1; i < result.length; i++) result[i].kind = 'alternative'
 
   return {
-    options: unique,
+    options: result,
     accessStopCount: accessCandidates.length,
     egressStopCount: egressCandidates.length,
   }
@@ -274,6 +320,47 @@ interface PathResult {
 
 function pathSignature(p: PathResult): string {
   return p.steps.map((s) => s.key).join('>') + ':' + p.egress.stop.id
+}
+
+/** Първата ride line в пътя (за diversification). */
+function getFirstRideLine(p: PathResult): string | null {
+  for (const s of p.steps) {
+    if (s.edge?.edge?.type === 'ride') return s.edge.edge.line
+  }
+  return null
+}
+
+/** Всички ride-edge lines които стартират от access stops — candidate first lines. */
+function collectFirstRideCandidates(access: AccessCandidate[]): string[] {
+  const lines = new Set<string>()
+  for (const a of access) {
+    for (const e of transitGraph.getEdges(a.stop.id)) {
+      if (e.type === 'ride') lines.add(e.line)
+    }
+  }
+  return [...lines]
+}
+
+/**
+ * Форбидва ride edges от access stops с всички линии ОСВЕН target-а.
+ * Това принуждава първи hop да е target line (или walk transfer, но walk-ове
+ * от access вече са disallowed в Dijkstra-та).
+ */
+function forbidFirstLineEdges(
+  access: AccessCandidate[],
+  keepLine: string
+): Set<string> {
+  const forbidden = new Set<string>()
+  for (const a of access) {
+    const fromKey = stateKey(a.stop.id, null)
+    for (const e of transitGraph.getEdges(a.stop.id)) {
+      if (e.type !== 'ride') continue
+      if (e.line === keepLine) continue
+      const toKey = stateKey(e.toStopId, e.line)
+      forbidden.add(`${fromKey}>>${toKey}`)
+    }
+  }
+  return forbidden
 }
 
 /**
