@@ -47,9 +47,11 @@ function MapFocusController({
 function UserLocationCentering({
   position,
   recenterToken,
+  followMode,
 }: {
   position: GeoPosition | null
   recenterToken: number
+  followMode: boolean
 }) {
   const map = useMap()
   const centeredOnceRef = useRef(false)
@@ -57,15 +59,21 @@ function UserLocationCentering({
 
   useEffect(() => {
     if (!position) return
+    // Three triggers за re-center:
+    // 1) Първо позициониране след startup
+    // 2) Manual click на location button (token change)
+    // 3) Follow mode active (за navigation) — на всяка позиция
     const shouldRecenter =
-      !centeredOnceRef.current || recenterToken !== lastTokenRef.current
+      !centeredOnceRef.current ||
+      recenterToken !== lastTokenRef.current ||
+      followMode
     if (!shouldRecenter) return
-    map.flyTo([position.lat, position.lng], Math.max(map.getZoom(), 15), {
-      duration: 0.6,
+    map.flyTo([position.lat, position.lng], Math.max(map.getZoom(), 16), {
+      duration: followMode ? 0.4 : 0.6,
     })
     centeredOnceRef.current = true
     lastTokenRef.current = recenterToken
-  }, [position, map, recenterToken])
+  }, [position, map, recenterToken, followMode])
   return null
 }
 
@@ -227,6 +235,7 @@ export function Map({
   focusStop,
   userPosition,
   userRecenterToken,
+  followUser,
   favoriteSet,
   liveVehicles,
   routeGeometries,
@@ -243,6 +252,8 @@ export function Map({
   focusStop: Stop | null
   userPosition: GeoPosition | null
   userRecenterToken: number
+  /** Когато е true, картата auto-pan-ва към user position при всяка update (navigation mode). */
+  followUser: boolean
   favoriteSet: Set<number>
   liveVehicles: LiveVehicle[]
   /** За всяка избрана линия - polyline coords per direction. */
@@ -337,6 +348,7 @@ export function Map({
       <UserLocationCentering
         position={userPosition}
         recenterToken={userRecenterToken}
+        followMode={followUser}
       />
       {liveVehicles.map((v) => (
         <BusMarker key={v.id} vehicle={v} onSelect={onSelectVehicle} />

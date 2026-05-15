@@ -24,6 +24,9 @@ const GeoIntroModal = lazy(() =>
 const TripPlanner = lazy(() =>
   import('./components/TripPlanner').then((m) => ({ default: m.TripPlanner }))
 )
+const NavigationBar = lazy(() =>
+  import('./components/NavigationBar').then((m) => ({ default: m.NavigationBar }))
+)
 import { useFavorites } from './hooks/useFavorites'
 import { useLineTrips } from './hooks/useLineTrips'
 import { useLiveVehicles } from './hooks/useLiveVehicles'
@@ -46,6 +49,11 @@ function App() {
   const [selectedVehicle, setSelectedVehicle] = useState<LiveVehicle | null>(null)
   const [tripPlannerOpen, setTripPlannerOpen] = useState(false)
   const [plannedRoute, setPlannedRoute] = useState<RouteOption | null>(null)
+  /** Active navigation state. null = не сме в nav mode. */
+  const [navState, setNavState] = useState<{
+    route: RouteOption
+    currentLegIndex: number
+  } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   /** Веднъж отворено меню → остава mounted (с open=false), за да запази state. */
   const [menuEverOpened, setMenuEverOpened] = useState(false)
@@ -61,8 +69,13 @@ function App() {
     removeFavorite,
   } = useFavorites()
   const geo = useGeolocation()
-  const { vehicles: liveVehicles, status: liveStatus } = useLiveVehicles(selectedLines)
-  const liveTrips = useLineTrips(selectedLines)
+  /** При route plan филтрираме vehicles + trips по route lines, иначе по selectedLines. */
+  const effectiveLines = useMemo(
+    () => (plannedRoute ? [...new Set(plannedRoute.legs.flatMap((l) => l.type === 'ride' ? [l.line] : []))] : selectedLines),
+    [plannedRoute, selectedLines]
+  )
+  const { vehicles: liveVehicles, status: liveStatus } = useLiveVehicles(effectiveLines)
+  const liveTrips = useLineTrips(effectiveLines)
   // Показваме модала автоматично при първо влизане
   const [showGeoIntro, setShowGeoIntro] = useState(() => !hasShownGeoIntro())
   /** Token се сменя при click на location button - заставя Map да re-center. */
@@ -117,20 +130,54 @@ function App() {
     saveSelectedLines(selectedLines)
   }, [selectedLines])
 
-  const selectedLinesSet = useMemo(() => new Set(selectedLines), [selectedLines])
+  /**
+   * Когато имаме selected route, картата се филтрира към само неговите
+   * stops + lines (route override). Иначе се ползва обичайният `selectedLines`
+   * филтър от menu drawer-а.
+   */
+  const routeFilter = useMemo(() => {
+    if (!plannedRoute) return null
+    const lines = new Set<string>()
+    const stopCodes = new Set<number>()
+    for (const leg of plannedRoute.legs) {
+      if (leg.type === 'ride') {
+        lines.add(leg.line)
+        for (const s of leg.stops) {
+          const code = parseInt(s.code, 10)
+          if (Number.isFinite(code)) stopCodes.add(code)
+        }
+      } else {
+        if (leg.fromStopCode) {
+          const c = parseInt(leg.fromStopCode, 10)
+          if (Number.isFinite(c)) stopCodes.add(c)
+        }
+        if (leg.toStopCode) {
+          const c = parseInt(leg.toStopCode, 10)
+          if (Number.isFinite(c)) stopCodes.add(c)
+        }
+      }
+    }
+    return { lines, stopCodes }
+  }, [plannedRoute])
+
+  const selectedLinesSet = useMemo(
+    () => (routeFilter ? routeFilter.lines : new Set(selectedLines)),
+    [routeFilter, selectedLines]
+  )
   const favoriteSet = useMemo(
     () => new Set(favorites.map((f) => f.stopNumber)),
     [favorites]
   )
 
-  const noFilter = selectedLines.length === 0
-  const visibleStops = useMemo(
-    () =>
-      noFilter
-        ? stops
-        : stops.filter((s) => s.lines.some((l) => selectedLinesSet.has(l))),
-    [stops, noFilter, selectedLinesSet]
-  )
+  const noFilter = !routeFilter && selectedLines.length === 0
+  const visibleStops = useMemo(() => {
+    if (routeFilter) {
+      return stops.filter((s) => routeFilter.stopCodes.has(s.number))
+    }
+    return noFilter
+      ? stops
+      : stops.filter((s) => s.lines.some((l) => selectedLinesSet.has(l)))
+  }, [stops, noFilter, selectedLinesSet, routeFilter])
 
   const showFilteredEmptyState =
     !noFilter && stops.length > 0 && visibleStops.length === 0
@@ -168,6 +215,7 @@ function App() {
         focusStop={focusStop}
         userPosition={geo.position}
         userRecenterToken={userRecenterToken}
+        followUser={navState !== null}
         favoriteSet={favoriteSet}
         liveVehicles={liveVehicles}
         routeGeometries={routeGeometries}
@@ -257,13 +305,47 @@ function App() {
             onClose={() => setSelectedVehicle(null)}
           />
         )}
-        {tripPlannerOpen && (
+        {tripPlannerOpen && !navState && (
           <TripPlanner
             geo={geo.position}
             selectedOption={plannedRoute}
             onSelectOption={setPlannedRoute}
             onClose={() => {
               setTripPlannerOpen(false)
+              setPlannedRoute(null)
+            }}
+            onStartNavigation={(opt) => {
+              setPlannedRoute(opt)
+              setNavState({ route: opt, currentLegIndex: 0 })
+              setTripPlannerOpen(false)
+              // Auto-activate GPS ако не е активен
+              if (!geo.active && hasShownGeoIntro()) geo.toggle()
+            }}
+          />
+        )}
+        {navState && (
+          <NavigationBar
+            route={navState.route}
+            currentLegIndex={navState.currentLegIndex}
+            onAdvance={() => {
+              setNavState((s) => {
+                if (!s) return s
+                if (s.currentLegIndex >= s.route.legs.length - 1) {
+                  // last → end
+                  return null
+                }
+                return { ...s, currentLegIndex: s.currentLegIndex + 1 }
+              })
+            }}
+            onPrev={() => {
+              setNavState((s) =>
+                s && s.currentLegIndex > 0
+                  ? { ...s, currentLegIndex: s.currentLegIndex - 1 }
+                  : s
+              )
+            }}
+            onEnd={() => {
+              setNavState(null)
               setPlannedRoute(null)
             }}
           />

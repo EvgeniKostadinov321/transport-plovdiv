@@ -44,11 +44,13 @@ export function TripPlanner({
   onClose,
   selectedOption,
   onSelectOption,
+  onStartNavigation,
 }: {
   geo: GeoPosition | null
   onClose: () => void
   selectedOption: RouteOption | null
   onSelectOption: (opt: RouteOption | null) => void
+  onStartNavigation: (opt: RouteOption) => void
 }) {
   const [from, setFrom] = useState<LocationValue | null>(null)
   const [to, setTo] = useState<LocationValue | null>(null)
@@ -204,18 +206,30 @@ export function TripPlanner({
                 })}
               </div>
               {isSelected && (
-                <ol className="trip-option__legs">
-                  {opt.legs.map((leg, j) => {
-                    const { icon, text } = legSummary(leg)
-                    return (
-                      <li key={j} className="trip-option__leg">
-                        <span className="trip-option__leg-icon">{icon}</span>
-                        <span className="trip-option__leg-text">{text}</span>
-                        <span className="trip-option__leg-time">{formatMin(leg.minutes)}</span>
-                      </li>
-                    )
-                  })}
-                </ol>
+                <>
+                  <ol className="trip-option__legs">
+                    {opt.legs.map((leg, j) => {
+                      const { icon, text } = legSummary(leg)
+                      return (
+                        <li key={j} className="trip-option__leg">
+                          <span className="trip-option__leg-icon">{icon}</span>
+                          <span className="trip-option__leg-text">{text}</span>
+                          <span className="trip-option__leg-time">{formatMin(leg.minutes)}</span>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                  <button
+                    type="button"
+                    className="trip-option__start"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onStartNavigation(opt)
+                    }}
+                  >
+                    Започни навигация
+                  </button>
+                </>
               )}
             </article>
           )
